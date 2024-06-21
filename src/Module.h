@@ -1,27 +1,22 @@
-//
-// Created by MicroBlock on 2024/6/21.
-//
+#pragma once
 
-#ifndef BLOOK_MODULE_H
-#define BLOOK_MODULE_H
-
+#include <libloaderapi.h>
 #include "Process.h"
+#include "Function.h"
 
 namespace blook {
     class Process;
 
     class Module {
-        Process* proc;
-        void* pModule;
+        std::shared_ptr<Process> proc;
+        HMODULE pModule;
 
     public:
-        Module(Process* proc, void* pModule): proc(proc), pModule(pModule) {
+        Module(std::shared_ptr<Process> proc, HMODULE pModule);
 
+        std::optional<Function> exports(const std::string& name) {
+            if(!proc)
         }
-
-        void* exports(const std::string& name) {}
     };
 
-} // blook
-
-#endif //BLOOK_MODULE_H
+}

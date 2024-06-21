@@ -1,6 +1,3 @@
-//
-// Created by MicroBlock on 2024/6/21.
-//
 
 #include "Process.h"
 #include "windows.h"
@@ -55,7 +52,7 @@ static DWORD_PTR GetProcessBaseAddress(HANDLE processHandle, const std::string& 
                             if(GetModuleFileNameA(module, name, MAX_PATH)) {
                                 const auto filename = std::filesystem::path(name).filename();
                                 std::cout<<filename<<" "<<i<<std::endl;
-                                if (name == filename) {
+                                if (modulename == filename) {
                                     baseAddress = (DWORD_PTR)module;
                                     break;
                                 }
@@ -141,7 +138,16 @@ namespace blook {
         this->pid = GetProcessId(h);
     }
 
-    Process Process::self() {
-        return Process(getpid());
+    std::shared_ptr<Process> Process::self() {
+        return attach(getpid());
+    }
+
+    bool Process::is_self() const {
+        return getpid() == pid;
+    }
+
+    template<class... T>
+    std::shared_ptr<Process> Process::attach(T&&... argv) {
+        return std::make_shared<Process>(std::forward(argv)...);
     }
 } // blook

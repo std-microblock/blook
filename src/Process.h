@@ -20,18 +20,24 @@ namespace blook {
         HANDLE h;
         DWORD pid;
 #endif
-    public:
-
         explicit Process(HANDLE h);
         explicit Process(DWORD pid);
-
         explicit Process(std::string name);
+    public:
+
+
+        Process() = delete;
+        Process(Process&) = delete;
 
         std::optional<std::vector<std::uint8_t>> read(void* addr, size_t size) const;
 
         [[nodiscard]] std::optional<Module> module(const std::string& name) const;
+        bool is_self() const;
 
-        static Process self();
+        static std::shared_ptr<Process> self();
+
+        template<class ...T>
+        static std::shared_ptr<Process> attach(T&&... argv);
     };
 
 

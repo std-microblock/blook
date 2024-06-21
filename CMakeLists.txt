@@ -7,7 +7,9 @@ add_library(blook STATIC src/blook.cpp
         src/Process.cpp
         src/Process.h
         src/Module.cpp
-        src/Module.h)
+        src/Module.h
+        src/Function.cpp
+        src/Function.h)
 
 add_executable(blook-test src/test.cpp)
 
