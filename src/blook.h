@@ -1,6 +1,6 @@
 #ifndef BLOOK_BLOOK_H
 #define BLOOK_BLOOK_H
 
-void hello();
+#include "Process.h"
 
 #endif //BLOOK_BLOOK_H
