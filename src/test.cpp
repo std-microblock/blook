@@ -32,13 +32,17 @@ void test_wrap_function() {
 
 void test_inline_hook() {
   auto process = blook::Process::self();
-  blook::SIH<int64_t, int64_t, char *, char *, int64_t> hook =
+  auto hook =
       process->module("USER32.DLL")
           .value()
           ->exports("MessageBoxA")
-          ->inline_hook([&](int64_t a, char *text, char *title, int64_t b) {
-            return hook->trampoline()(a, "oh fuck", text, b);
-          });
+          ->make_inline_hook(
+              [](auto hook)
+                  -> std::function<int64_t(int64_t, char *, char *, int64_t)> {
+                return [&](int64_t a, char *text, char *title, int64_t b) {
+                  return hook->trampoline()(a, "oh fuck", text, b);
+                };
+              });
 
   MessageBoxA(nullptr, "hi", "hi", 0);
 }

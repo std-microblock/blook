@@ -79,4 +79,5 @@ void InlineHook::install(bool try_trampoline) {
   installed = true;
 }
 void *InlineHook::trampoline_raw() { return p_trampoline; }
+InlineHook::InlineHook(void *target) : target(target) {}
 } // namespace blook
