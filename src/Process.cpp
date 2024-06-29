@@ -1,9 +1,13 @@
 
 #include "Process.h"
+
 #include "windows.h"
 #include <TlHelp32.h>
-#include "psapi.h"
+#include <thread>
 
+#include "Module.h"
+
+#include "psapi.h"
 #ifdef _WIN32
 static std::optional<uint64_t> FindProcessByName(const std::string& name) {
     PROCESSENTRY32 entry{
@@ -21,9 +25,9 @@ static std::optional<uint64_t> FindProcessByName(const std::string& name) {
     }
 }
 
-static DWORD_PTR GetProcessBaseAddress(HANDLE processHandle, const std::string& modulename)
+static HMODULE GetProcessBaseAddress(HANDLE processHandle, const std::string& modulename)
 {
-    DWORD_PTR   baseAddress = 0;
+    HMODULE   baseAddress = 0;
     HMODULE     *moduleArray;
     LPBYTE      moduleArrayBytes;
     DWORD       bytesRequired;
@@ -51,9 +55,9 @@ static DWORD_PTR GetProcessBaseAddress(HANDLE processHandle, const std::string& 
                             char name[MAX_PATH];
                             if(GetModuleFileNameA(module, name, MAX_PATH)) {
                                 const auto filename = std::filesystem::path(name).filename();
-                                std::cout<<filename<<" "<<i<<std::endl;
+                                std::cout<<filename<<" "<<( filename == modulename)<<" "<<i<<std::endl;
                                 if (modulename == filename) {
-                                    baseAddress = (DWORD_PTR)module;
+                                    baseAddress = module;
                                     break;
                                 }
                             }
@@ -110,10 +114,10 @@ namespace blook {
         return {};
     }
 
-    std::optional<Module> Process::module(const std::string &name) const {
+    std::optional<std::shared_ptr<Module>> Process::module(const std::string &name) const {
         acquireDebugPrivilege();
         const auto h = GetProcessBaseAddress(this->h, name);
-        if(h) return {};// (void*)h;
+        if(h) return Module::make(p_self.lock(), h);
         return {};
     }
 
@@ -139,15 +143,17 @@ namespace blook {
     }
 
     std::shared_ptr<Process> Process::self() {
-        return attach(getpid());
+        return attach(GetCurrentProcessId());
     }
 
     bool Process::is_self() const {
-        return getpid() == pid;
+        return GetCurrentProcessId() == pid;
     }
 
     template<class... T>
     std::shared_ptr<Process> Process::attach(T&&... argv) {
-        return std::make_shared<Process>(std::forward(argv)...);
+        const auto proc = std::shared_ptr<Process>(new Process(argv...));
+        proc->p_self = proc;
+        return proc;
     }
 } // blook

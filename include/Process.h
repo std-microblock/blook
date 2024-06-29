@@ -8,9 +8,14 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+
+#if ((ULONG_MAX) == (UINT_MAX))
+#define _AMD64_
+#elif
+#define _IA86_
+#endif
 #include <minwindef.h>
 
-#include "Module.h"
 
 namespace blook {
     class Module;
@@ -20,6 +25,7 @@ namespace blook {
         HANDLE h;
         DWORD pid;
 #endif
+        std::weak_ptr<Process> p_self{};
         explicit Process(HANDLE h);
         explicit Process(DWORD pid);
         explicit Process(std::string name);
@@ -29,10 +35,10 @@ namespace blook {
         Process() = delete;
         Process(Process&) = delete;
 
-        std::optional<std::vector<std::uint8_t>> read(void* addr, size_t size) const;
+        [[nodiscard]] std::optional<std::vector<std::uint8_t>> read(void* addr, size_t size) const;
 
-        [[nodiscard]] std::optional<Module> module(const std::string& name) const;
-        bool is_self() const;
+        [[nodiscard]] std::optional<std::shared_ptr<Module>> module(const std::string& name) const;
+        [[nodiscard]] bool is_self() const;
 
         static std::shared_ptr<Process> self();
 

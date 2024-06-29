@@ -1,3 +1,9 @@
 [submodule "external/zasm"]
 	path = external/zasm
 	url = https://github.com/zyantific/zasm
+[submodule "external/libffi"]
+	path = external/libffi
+	url = https://github.com/libffi/libffi.git
+[submodule "external/zydis"]
+	path = external/zydis
+	url = https://github.com/zyantific/zydis

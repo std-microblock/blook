@@ -1,11 +1,13 @@
-#include "blook.h"
+#include "../blook.h"
+#include "Windows.h"
 
 int main() {
     auto process = blook::Process::self();
-    process.module("Kernel32.dll")
-        ->exports("MessageBoxA")
-        ->inline_hook([](){
+    process->module("KERNEL32.DLL").value()
+        ->exports("MessageBoxA");
+//        ->inline_hook([](){
+//
+//        });
 
-        });
-
+    MessageBoxA(nullptr, "hi", "hi", 0);
 }
