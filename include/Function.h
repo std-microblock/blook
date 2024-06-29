@@ -1,30 +1,94 @@
 #pragma once
 
+#include <format>
 #include <functional>
-#include <string>
+#include <iostream>
 #include <memory>
 
+#include "Hook.h"
+#include "Memo.h"
+#include "dirty_windows.h"
+#include "utils.h"
+#include "zasm/zasm.hpp"
 
+extern "C" int64_t getR11();
 
 namespace blook {
 class Module;
+
 class Function {
+
   std::shared_ptr<Module> module;
-  void* p_func;
+  void *ptr;
   std::string name;
+
+  template <typename ReturnVal, typename... Args>
+  static ReturnVal function_fp_wrapper(Args... args) {
+    const auto r11 = getR11();
+    const auto fn = reinterpret_cast<std::function<ReturnVal(Args...)> *>(r11);
+    return (*fn)(args...);
+  }
+
 public:
-    Function(std::shared_ptr<Module> module, void* p_func, std::string name);
+  Function(std::shared_ptr<Module> module, void *p_func, std::string name);
+  CLASS_MOVE_ONLY(Function)
 
-    template <class FuncType>
-    void inline_hook(std::function<FuncType(std::function<FuncType> origin)> func) {
+  static inline auto into_function_pointer(auto &&fn) {
+    return into_function_pointer(std::function(std::forward<decltype(fn)>(fn)));
+  }
 
-    }
+  template <typename ReturnVal, typename... Args>
+  static inline auto
+  into_function_pointer(std::function<ReturnVal(Args...)> &&fn)
+      -> ReturnVal (*)(Args...) {
+    return into_function_pointer(new std::function(std::move(fn)));
+  }
 
-    template <typename ReturnVal, typename ...Args>
-    static auto Function::into_function_pointer(std::function<ReturnVal(Args...)>* fn) -> ReturnVal(*)(Args...);
-    static size_t function_arg_count(void* pfn);
+  template <typename ReturnVal, typename... Args>
+  static inline auto
+  into_function_pointer(std::function<ReturnVal(Args...)> *fn)
+      -> ReturnVal (*)(Args...) {
+    using namespace zasm;
+    Program program(MachineMode::AMD64);
+
+    x86::Assembler a(program);
+    const auto label = a.createLabel("a");
+    a.bind(label);
+    a.mov(x86::r11, Imm((size_t)fn));
+    a.mov(x86::r12, Imm((int64_t)&function_fp_wrapper<ReturnVal, Args...>));
+    a.jmp(x86::r12);
+
+    Serializer serializer;
+    void *pCodePage = Memo::malloc_rwx(utils::estimateCodeSize(program));
+    if (auto err =
+            serializer.serialize(program, reinterpret_cast<int64_t>(pCodePage));
+        err != zasm::ErrorCode::None)
+      throw std::runtime_error(
+          std::format("JIT Serialization failure: {}", err.getErrorName()));
+
+    std::memcpy(pCodePage, serializer.getCode(), serializer.getCodeSize());
+    const auto funcAddress = serializer.getLabelAddress(label.getId());
+    assert(funcAddress != -1);
+    return reinterpret_cast<ReturnVal (*)(Args...)>(funcAddress);
+  }
+
+  template <typename ReturnVal, typename... Args>
+  inline std::shared_ptr<InlineHookT<ReturnVal, Args...>>
+  inline_hook(std::function<ReturnVal(Args...)> func) {
+    const auto hookFuncPtr = Function::into_function_pointer(func);
+    const auto h = std::make_shared<InlineHookT<ReturnVal, Args...>>(
+        (void *)ptr, (void *)hookFuncPtr);
+    h->install();
+    return h;
+  }
+
+  template <typename Func> inline auto inline_hook(Func &&func) {
+    return inline_hook(std::function(std::forward<Func>(func)));
+  }
 };
 
+template <typename T>
+concept can_convert_into_function_pointer =
+    requires(T a) { Function::into_function_pointer(a); };
 
-
-}
+} // namespace blook
