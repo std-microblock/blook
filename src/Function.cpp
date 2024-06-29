@@ -1,5 +1,5 @@
-#include "Function.h"
-#include "Memo.h"
+#include "include/Function.h"
+#include "include/Memo.h"
 #include "zasm/zasm.hpp"
 #include <string>
 #include <format>

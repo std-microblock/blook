@@ -10,8 +10,8 @@ add_library(blook STATIC src/blook.cpp
         src/Module.cpp
         src/Function.cpp
         src/Memo.cpp)
-include_directories(blook include external/zasm/zasm/include external/zasm/)
-
+include_directories(blook ./)
+target_link_libraries(blook zasm::zasm)
 
 add_executable(blook-test src/test.cpp)
 
