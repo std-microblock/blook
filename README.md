@@ -79,10 +79,3 @@ target_link_libraries(your_target blook::blook)
 ### Manual installation
 
 It's strongly discouraged to use the project without CMake, but it should be possible.
-
-## Roadmap
-
-[x] Magic aheadlib loader
-[x] CreateRemoteThread injector
-[ ] Process memory api [xref scanner/aob scanner/xtd]
-[ ] assembly injection api
