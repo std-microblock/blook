@@ -1,6 +1,8 @@
-# blook
-
-A modern C++ library for hacking.
+<div align="center">
+<img src="./resources/icon.png" height="300">
+<h1 style="margin-top: -30px;">&nbsp;&nbsp;blook</h1>
+<h4>A modern C++ library for hacking.</h4>
+</div>
 
 ## So what?
 
