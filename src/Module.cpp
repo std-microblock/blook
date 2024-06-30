@@ -1,9 +1,62 @@
 
 #include "include/Module.h"
+#include "Windows.h"
 #include <cassert>
 #include <libloaderapi.h>
 #include <map>
 #include <utility>
+
+HANDLE RtlCreateUserThread(HANDLE hProcess, LPVOID lpBaseAddress,
+                           LPVOID lpSpace) {
+  // undocumented.ntinternals.com
+  typedef DWORD(WINAPI * functypeRtlCreateUserThread)(
+      HANDLE ProcessHandle, PSECURITY_DESCRIPTOR SecurityDescriptor,
+      BOOL CreateSuspended, ULONG StackZeroBits, PULONG StackReserved,
+      PULONG StackCommit, LPVOID StartAddress, LPVOID StartParameter,
+      HANDLE ThreadHandle, LPVOID ClientID);
+  HANDLE hRemoteThread = NULL;
+  HMODULE hNtDllModule = GetModuleHandle("ntdll.dll");
+  if (hNtDllModule == NULL) {
+    return NULL;
+  }
+  functypeRtlCreateUserThread funcRtlCreateUserThread =
+      (functypeRtlCreateUserThread)GetProcAddress(hNtDllModule,
+                                                  "RtlCreateUserThread");
+  if (!funcRtlCreateUserThread) {
+    return NULL;
+  }
+  funcRtlCreateUserThread(hProcess, NULL, 0, 0, 0, 0, lpBaseAddress, lpSpace,
+                          &hRemoteThread, NULL);
+  DWORD lastError = GetLastError();
+  if (lastError)
+    throw std::runtime_error(std::to_string(lastError));
+  return hRemoteThread;
+}
+
+HANDLE NtCreateThreadEx(HANDLE hProcess, LPVOID lpBaseAddress, LPVOID lpSpace) {
+  // undocumented.ntinternals.com
+  typedef DWORD(WINAPI * functypeNtCreateThreadEx)(
+      PHANDLE ThreadHandle, ACCESS_MASK DesiredAccess, LPVOID ObjectAttributes,
+      HANDLE ProcessHandle, LPTHREAD_START_ROUTINE lpStartAddress,
+      LPVOID lpParameter, BOOL CreateSuspended, DWORD dwStackSize,
+      DWORD Unknown1, DWORD Unknown2, LPVOID Unknown3);
+  HANDLE hRemoteThread = NULL;
+  HMODULE hNtDllModule = NULL;
+  functypeNtCreateThreadEx funcNtCreateThreadEx = NULL;
+  hNtDllModule = GetModuleHandle("ntdll.dll");
+  if (hNtDllModule == NULL) {
+    return NULL;
+  }
+  funcNtCreateThreadEx = (functypeNtCreateThreadEx)GetProcAddress(
+      hNtDllModule, "NtCreateThreadEx");
+  if (!funcNtCreateThreadEx) {
+    return NULL;
+  }
+  funcNtCreateThreadEx(&hRemoteThread, GENERIC_ALL, NULL, hProcess,
+                       (LPTHREAD_START_ROUTINE)lpBaseAddress, lpSpace, FALSE,
+                       NULL, NULL, NULL, NULL);
+  return hRemoteThread;
+}
 
 namespace blook {
 std::optional<Function> Module::exports(const std::string &name) {
@@ -40,5 +93,28 @@ std::unordered_map<std::string, Function> *Module::obtain_exports() {
     }
   }
   return &exports_cache;
+}
+void *Module::inject(const std::string &dll_path, Module::InjectMethod method) {
+  LPVOID lpSpace =
+      (LPVOID)VirtualAllocEx(proc->h, NULL, dll_path.length(),
+                             MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+  if (!lpSpace)
+    throw std::runtime_error(std::format("Failed to alloc in proc"));
+
+  int n = WriteProcessMemory(proc->h, lpSpace, dll_path.c_str(),
+                             dll_path.length(), NULL);
+  if (n == 0)
+    throw std::runtime_error(std::format("failed to write into process"));
+
+  switch (method) {
+  case InjectMethod::NtCreateThread:
+    return NtCreateThreadEx(proc->h, (void *)LoadLibraryA, lpSpace);
+  case InjectMethod::RtlCreateUserThread:
+    return RtlCreateUserThread(proc->h, (void *)LoadLibraryA, lpSpace);
+  default:
+    return CreateRemoteThread(proc->h, NULL, 0,
+                              (LPTHREAD_START_ROUTINE)(void *)LoadLibraryA,
+                              lpSpace, NULL, NULL);
+  }
 }
 } // namespace blook

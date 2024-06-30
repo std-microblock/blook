@@ -16,7 +16,7 @@ class Module;
 
 class Process {
 #ifdef _WIN32
-  HANDLE h;
+
   DWORD pid;
   explicit Process(HANDLE h);
   explicit Process(DWORD pid);
@@ -24,6 +24,10 @@ class Process {
   std::weak_ptr<Process> p_self{};
 
   explicit Process(std::string name);
+
+protected:
+  HANDLE h;
+  friend Module;
 
 public:
   CLASS_MOVE_ONLY(Process)
