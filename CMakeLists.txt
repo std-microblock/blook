@@ -15,14 +15,20 @@ add_library(blook STATIC
         src/utils.cpp
         include/utils.h
         src/Hook.cpp
+        src/misc.cpp
+        include/misc.h
 )
 include_directories(blook ./)
 target_link_libraries(blook zasm::zasm)
 set_property(TARGET blook PROPERTY
         MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 add_executable(blook-test src/test.cpp)
-
+add_library(blook-test-dll SHARED src/test.cpp)
+add_dependencies(blook-test-dll blook)
 add_dependencies(blook-test blook)
 set_property(TARGET blook-test PROPERTY
         MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-target_link_libraries(blook-test blook zasm::zasm)
+set_property(TARGET blook-test-dll PROPERTY
+        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+target_link_libraries(blook-test blook)
+target_link_libraries(blook-test-dll blook)

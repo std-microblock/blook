@@ -9,6 +9,8 @@ InlineHook::InlineHook(void *target, void *hook_func)
 void InlineHook::install(bool try_trampoline) {
   if (installed)
     throw std::runtime_error("The hook was already installed.");
+  if (!hook_func || !target)
+    throw std::runtime_error("The hook is invalid.");
 
   using namespace zasm;
   Program programRewrite(MachineMode::AMD64);
@@ -59,7 +61,7 @@ void InlineHook::install(bool try_trampoline) {
     b.jmp(x86::r11);
   }
 
-  if (try_trampoline) {
+  if (try_trampoline && !p_trampoline) {
     const auto trampoline_code_size =
         utils::estimateCodeSize(programTrampoline);
     trampoline_size = trampoline_code_size;
@@ -77,11 +79,21 @@ void InlineHook::install(bool try_trampoline) {
   }
 
   Memo::protect_rwx(pCodePage, hookSize);
+  origData = std::vector<unsigned char>(hookSize);
+  std::memcpy(origData->data(), pCodePage, hookSize);
   std::memcpy(pCodePage, serializer.getCode(), hookSize);
 
   installed = true;
 }
 void *InlineHook::trampoline_raw() { return p_trampoline; }
 InlineHook::InlineHook(void *target) : target(target) {}
+void InlineHook::uninstall() {
+  if (!installed)
+    throw std::runtime_error("The hook was not installed.");
+
+  std::memcpy(target, origData->data(), origData->size());
+  origData = {};
+  installed = false;
+}
 
 } // namespace blook

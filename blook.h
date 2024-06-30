@@ -6,5 +6,5 @@
 #include "include/Memo.h"
 #include "include/Module.h"
 #include "include/Process.h"
-
+#include "include/misc.h"
 #endif // BLOOK_BLOOK_H
