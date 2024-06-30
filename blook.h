@@ -2,7 +2,9 @@
 #define BLOOK_BLOOK_H
 
 #include "include/Function.h"
+#include "include/Hook.h"
+#include "include/Memo.h"
 #include "include/Module.h"
 #include "include/Process.h"
 
-#endif //BLOOK_BLOOK_H
+#endif // BLOOK_BLOOK_H

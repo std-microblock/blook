@@ -52,8 +52,6 @@ static HMODULE GetProcessBaseAddress(HANDLE processHandle,
                 std::transform(filename.begin(), filename.end(),
                                filename.begin(),
                                [](unsigned char c) { return std::tolower(c); });
-                std::cout << filename << " " << (filename == modulename) << " "
-                          << i << std::endl;
                 if (modulename == filename) {
                   baseAddress = module;
                   break;

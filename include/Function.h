@@ -5,7 +5,6 @@
 #include <iostream>
 #include <memory>
 
-#include "Hook.h"
 #include "Memo.h"
 #include "dirty_windows.h"
 #include "utils.h"
@@ -15,7 +14,7 @@ extern "C" int64_t getR11();
 
 namespace blook {
 class Module;
-
+class InlineHook;
 class Function {
 
   std::shared_ptr<Module> module;
@@ -52,7 +51,7 @@ public:
     Program program(MachineMode::AMD64);
 
     x86::Assembler a(program);
-    const auto label = a.createLabel("a");
+    const auto label = a.createLabel();
     a.bind(label);
     a.mov(x86::r11, Imm((size_t)fn));
     a.mov(x86::r12, Imm((int64_t)&function_fp_wrapper<ReturnVal, Args...>));
@@ -72,19 +71,7 @@ public:
     return reinterpret_cast<ReturnVal (*)(Args...)>(funcAddress);
   }
 
-  template <typename ReturnVal, typename... Args>
-  inline std::shared_ptr<InlineHookT<ReturnVal, Args...>>
-  inline_hook(std::function<ReturnVal(Args...)> func) {
-    const auto hookFuncPtr = Function::into_function_pointer(func);
-    const auto h = std::make_shared<InlineHookT<ReturnVal, Args...>>(
-        (void *)ptr, (void *)hookFuncPtr);
-    h->install();
-    return h;
-  }
-
-  template <typename Func> inline auto inline_hook(Func &&func) {
-    return inline_hook(std::function(std::forward<Func>(func)));
-  }
+  std::shared_ptr<InlineHook> inline_hook();
 };
 
 template <typename T>

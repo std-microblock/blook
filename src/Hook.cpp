@@ -7,6 +7,9 @@ namespace blook {
 InlineHook::InlineHook(void *target, void *hook_func)
     : target(target), hook_func(hook_func) {}
 void InlineHook::install(bool try_trampoline) {
+  if (installed)
+    throw std::runtime_error("The hook was already installed.");
+
   using namespace zasm;
   Program programRewrite(MachineMode::AMD64);
   x86::Assembler a(programRewrite);
@@ -80,4 +83,5 @@ void InlineHook::install(bool try_trampoline) {
 }
 void *InlineHook::trampoline_raw() { return p_trampoline; }
 InlineHook::InlineHook(void *target) : target(target) {}
+
 } // namespace blook
