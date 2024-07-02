@@ -1,5 +1,6 @@
 
 #include "include/Module.h"
+#include "include/Process.h"
 #include "Windows.h"
 #include <cassert>
 #include <libloaderapi.h>

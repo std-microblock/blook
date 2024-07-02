@@ -38,16 +38,18 @@ void test_inline_hook() {
                   ->inline_hook();
   hook->install([=](int64_t a, char *text, char *title, int64_t b) -> int64_t {
     return hook->trampoline_t<int64_t(int64_t, char *, char *, int64_t)>()(
-        a, "oh fuck", text, b);
+        a, (char *)"oh fuck", text, b);
   });
 
+  MessageBoxA(nullptr, "hi", "hi", 0);
+
+  hook->uninstall();
   MessageBoxA(nullptr, "hi", "hi", 0);
 }
 
 int main() {
   try {
     test_inline_hook();
-    MessageBoxA(nullptr, "hi", "hi", 0);
   } catch (std::exception &e) {
     std::cerr << e.what();
     abort();

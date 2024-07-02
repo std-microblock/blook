@@ -1,4 +1,4 @@
-#include "Process.h"
+#include "include/Process.h"
 #include "include/Module.h"
 
 #include "windows.h"
@@ -120,7 +120,8 @@ Process::module(const std::string &name) const {
   return {};
 }
 
-Process::Process(std::string name) {
+Process::Process(std::string name): _memo(p_self.lock()) {
+
   const auto pid = FindProcessByName(name);
   if (pid.has_value()) {
     Process(pid.value());
@@ -129,9 +130,9 @@ Process::Process(std::string name) {
   }
 }
 
-Process::Process(HANDLE h) : h(h) { this->pid = GetProcessId(h); }
+Process::Process(HANDLE h) : h(h), _memo(p_self.lock()) { this->pid = GetProcessId(h); }
 
-Process::Process(DWORD pid) {
+Process::Process(DWORD pid):  _memo(p_self.lock()) {
   acquireDebugPrivilege();
   HANDLE hproc = OpenProcess(PROCESS_ALL_ACCESS, false, pid);
   if (!hproc)
@@ -140,13 +141,21 @@ Process::Process(DWORD pid) {
   this->pid = GetProcessId(h);
 }
 
+
 std::shared_ptr<Process> Process::self() {
-  return attach(GetCurrentProcessId());
+    static std::optional<std::shared_ptr<Process>> _self;
+    if(!_self.has_value())
+        _self = attach(GetCurrentProcessId());
+    return _self.value();
 }
 
 bool Process::is_self() const { return GetCurrentProcessId() == pid; }
 
-template <class... T> std::shared_ptr<Process> Process::attach(T &&...argv) {
+    Pointer Process::memo() {
+        return _memo;
+    }
+
+    template <class... T> std::shared_ptr<Process> Process::attach(T &&...argv) {
   const auto proc = std::shared_ptr<Process>(new Process(argv...));
   proc->p_self = proc;
   return proc;

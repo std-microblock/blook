@@ -58,7 +58,7 @@ public:
     a.jmp(x86::r12);
 
     Serializer serializer;
-    void *pCodePage = Memo::malloc_rwx(utils::estimateCodeSize(program));
+    void *pCodePage = Pointer::malloc_rwx(utils::estimateCodeSize(program));
     if (auto err =
             serializer.serialize(program, reinterpret_cast<int64_t>(pCodePage));
         err != zasm::ErrorCode::None)

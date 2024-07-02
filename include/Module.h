@@ -1,11 +1,13 @@
 #pragma once
-#include "Process.h"
 #include <map>
 #include <unordered_map>
-
+#include <optional>
+#include <string>
+#include <filesystem>
 #include "Function.h"
 
 namespace blook {
+    class Process;
 class Module {
   std::shared_ptr<Process> proc;
   std::weak_ptr<Module> p_self;

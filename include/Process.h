@@ -2,6 +2,7 @@
 
 #include "dirty_windows.h"
 #include "utils.h"
+#include "Module.h"
 #include <cstdint>
 #include <filesystem>
 #include <iostream>
@@ -12,8 +13,7 @@
 #include <vector>
 
 namespace blook {
-class Module;
-
+    class Pointer;
 class Process {
 #ifdef _WIN32
 
@@ -24,10 +24,11 @@ class Process {
   std::weak_ptr<Process> p_self{};
 
   explicit Process(std::string name);
-
+    Pointer _memo;
 protected:
   HANDLE h;
   friend Module;
+  friend Pointer;
 
 public:
   CLASS_MOVE_ONLY(Process)
@@ -40,6 +41,8 @@ public:
   [[nodiscard]] bool is_self() const;
 
   static std::shared_ptr<Process> self();
+
+  Pointer memo();
 
   template <class... T> static std::shared_ptr<Process> attach(T &&...argv);
 };

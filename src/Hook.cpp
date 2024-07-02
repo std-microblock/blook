@@ -65,7 +65,7 @@ void InlineHook::install(bool try_trampoline) {
     const auto trampoline_code_size =
         utils::estimateCodeSize(programTrampoline);
     trampoline_size = trampoline_code_size;
-    const auto trampolineCode = Memo::malloc_near_rwx(target, trampoline_size);
+    const auto trampolineCode = Pointer::malloc_near_rwx(target, trampoline_size);
 
     Serializer serializer2;
     if (auto err = serializer2.serialize(
@@ -78,7 +78,7 @@ void InlineHook::install(bool try_trampoline) {
     p_trampoline = trampolineCode;
   }
 
-  Memo::protect_rwx(pCodePage, hookSize);
+  Pointer::protect_rwx(pCodePage, hookSize);
   origData = std::vector<unsigned char>(hookSize);
   std::memcpy(origData->data(), pCodePage, hookSize);
   std::memcpy(pCodePage, serializer.getCode(), hookSize);
