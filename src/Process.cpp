@@ -102,12 +102,7 @@ std::optional<std::vector<std::uint8_t>> Process::read(void *addr,
                                                        size_t size) const {
   std::vector<std::uint8_t> data;
   data.resize(size);
-
-  SYSTEM_INFO sysinfo;
-  GetSystemInfo(&sysinfo);
-
-  if (ReadProcessMemory(this->h, (void *)(addr), data.data(), size, nullptr))
-    return data;
+  if(read(data.data(),size)) return data;
   return {};
 }
 
@@ -153,6 +148,15 @@ bool Process::is_self() const { return GetCurrentProcessId() == pid; }
 
     Pointer Process::memo() {
         return _memo;
+    }
+
+    void *Process::read(void *dest, void *addr, size_t size) const {
+        SYSTEM_INFO sysinfo;
+        GetSystemInfo(&sysinfo);
+
+        if (ReadProcessMemory(this->h, (void *)(addr), dest, size, nullptr))
+            return dest;
+        return nullptr;
     }
 
     template <class... T> std::shared_ptr<Process> Process::attach(T &&...argv) {

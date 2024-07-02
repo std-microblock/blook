@@ -36,6 +36,9 @@ public:
   [[nodiscard]] std::optional<std::vector<std::uint8_t>>
   read(void *addr, size_t size) const;
 
+  void*
+    read(void* dest, void *addr, size_t size) const;
+
   [[nodiscard]] std::optional<std::shared_ptr<Module>>
   module(const std::string &name) const;
   [[nodiscard]] bool is_self() const;

@@ -28,6 +28,13 @@ public:
     void *malloc(size_t size, void* near, MemoryProtection protection = MemoryProtection::rw);
     void *malloc(size_t size, MemoryProtection protection = MemoryProtection::rw);
     std::vector<uint8_t> read(void* ptr, size_t size);
+    std::span<uint8_t> read_leaked(void* ptr, size_t size);
+
+    template<typename Struct>
+    inline std::optional<Struct> read(void* ptr) {
+        const auto val = read_leaked(ptr, sizeof(Struct));
+        return reinterpret_cast<Struct>(val.data());
+    }
     std::optional<std::vector<uint8_t>> try_read(void* ptr, size_t size);
     explicit Pointer(std::shared_ptr<Process> proc);
 };
