@@ -17,6 +17,7 @@ add_library(blook STATIC
         src/Hook.cpp
         src/misc.cpp
         include/misc.h
+        include/xtd.h
 )
 include_directories(blook ./)
 target_link_libraries(blook zasm::zasm)
