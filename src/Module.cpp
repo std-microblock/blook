@@ -1,7 +1,7 @@
 
 #include "include/Module.h"
-#include "include/Process.h"
 #include "Windows.h"
+#include "include/Process.h"
 #include <cassert>
 #include <libloaderapi.h>
 #include <map>
@@ -67,7 +67,7 @@ std::optional<Function> Module::exports(const std::string &name) {
                              "Inject your code into target process first.");
   const auto addr = GetProcAddress(pModule, name.c_str());
   if (addr)
-    return Function(p_self.lock(), addr, name);
+    return Function(proc, addr, name);
   return {};
 }
 Module::Module(std::shared_ptr<Process> proc, HMODULE pModule)

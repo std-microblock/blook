@@ -17,9 +17,9 @@ class Module;
 class InlineHook;
 class Function {
 
-  std::shared_ptr<Module> module;
+  std::shared_ptr<Process> process;
   void *ptr;
-  std::string name;
+  std::string name = "<unnamed function>";
 
   template <typename ReturnVal, typename... Args>
   static ReturnVal function_fp_wrapper(Args... args) {
@@ -29,7 +29,8 @@ class Function {
   }
 
 public:
-  Function(std::shared_ptr<Module> module, void *p_func, std::string name);
+  Function(std::shared_ptr<Process> proc, void *p_func);
+  Function(std::shared_ptr<Process> proc, void *p_func, std::string name);
   CLASS_MOVE_ONLY(Function)
 
   static inline auto into_function_pointer(auto &&fn) {

@@ -1,3 +1,6 @@
 [submodule "external/zasm"]
 	path = external/zasm
 	url = https://github.com/zyantific/zasm
+[submodule "external/libpeconv"]
+	path = external/libpeconv
+	url = https://github.com/hasherezade/libpeconv.git

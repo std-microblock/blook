@@ -3,7 +3,7 @@ project(blook)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_C_STANDARD 90)
-add_subdirectory(external/zasm)
+add_subdirectory(external/zasm external/libpeconv)
 enable_language(C ASM_MASM)
 add_library(blook STATIC
         src/Process.cpp
@@ -19,7 +19,7 @@ add_library(blook STATIC
         include/misc.h
 )
 include_directories(blook ./)
-target_link_libraries(blook zasm::zasm)
+target_link_libraries(blook zasm::zasm libpeconv)
 set_property(TARGET blook PROPERTY
         MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 add_executable(blook-test src/test.cpp)

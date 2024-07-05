@@ -26,7 +26,7 @@ Inline hook a function? Easy!
 ```cpp
   auto process = blook::Process::self();
   auto mod = process->module("user32.dll").value();
-  for(auto& func: mod.obtain_exports()) {
+  for (auto& func: mod.obtain_exports()) {
       auto hook = mod;
                   ->exports(func)
                   ->inline_hook();
