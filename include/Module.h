@@ -1,13 +1,14 @@
 #pragma once
+
+#include <filesystem>
 #include <map>
-#include <unordered_map>
 #include <optional>
 #include <string>
-#include <filesystem>
-#include "Function.h"
+#include <unordered_map>
 
+#include "Function.h"
 namespace blook {
-    class Process;
+class Process;
 class Module {
   std::shared_ptr<Process> proc;
   std::weak_ptr<Module> p_self;
@@ -27,6 +28,7 @@ public:
   }
 
   std::optional<Function> exports(const std::string &name);
+  std::optional<MemoryRange> section(const std::string &name);
 
   enum class InjectMethod {
     CreateRemoteThread,

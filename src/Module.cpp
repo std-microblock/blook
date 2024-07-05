@@ -2,11 +2,13 @@
 #include "include/Module.h"
 #include "Windows.h"
 #include "include/Process.h"
+
 #include <cassert>
 #include <libloaderapi.h>
 #include <map>
 #include <utility>
 
+#include "peconv.h"
 HANDLE RtlCreateUserThread(HANDLE hProcess, LPVOID lpBaseAddress,
                            LPVOID lpSpace) {
   // undocumented.ntinternals.com
@@ -117,5 +119,12 @@ void *Module::inject(const std::string &dll_path, Module::InjectMethod method) {
                               (LPTHREAD_START_ROUTINE)(void *)LoadLibraryA,
                               lpSpace, NULL, NULL);
   }
+}
+std::optional<MemoryRange> Module::section(const std::string &name) {
+  if (!proc->is_self())
+    throw std::runtime_error("The operation can only be accomplished for the "
+                             "current process currently. "
+                             "Inject your code into target process first.");
+  BYTE *pe = peconv::load_pe_executable(buffer, bufsize, v_size);
 }
 } // namespace blook
