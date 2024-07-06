@@ -1,6 +1,6 @@
-> [!WARNING] 
-This project is in a relatively early stage and is not ready for production. Use at your own risk.  
-此项目仍较早期，不建议实际使用。
+> [!WARNING]
+> This project is in a relatively early stage and is not ready for production. Use at your own risk.  
+> 此项目仍较早期，不建议实际使用。
 
 
 <div align="center">
@@ -14,33 +14,54 @@ This project is in a relatively early stage and is not ready for production. Use
 Inline hook a function? Easy!
 
 ```cpp
-  auto process = blook::Process::self();
-  auto hook = process->module("user32.dll").value()
-                  ->exports("MessageBoxA")
-                  ->inline_hook();
-  hook->install([=](int64_t a, char *text, char *title, int64_t b) -> int64_t {
-    return hook->trampoline_t<int64_t(int64_t, char *, char *, int64_t)>()(
+auto process = blook::Process::self();
+auto hook = process->module("user32.dll").value()
+                   ->exports("MessageBoxA")
+                   ->inline_hook();
+    hook->install([=](int64_t a, char *text, char *title, int64_t b) -> int64_t {
+        return hook->trampoline_t<int64_t(int64_t, char *, char *, int64_t)>()(
         a, "oh yes", text, b);
-  });
+    });
 
-  MessageBoxA(nullptr, "hi", "hi", 0);
+MessageBoxA(nullptr, "hi", "hi", 0);
 ```
 
 ...hook more? Sure!
 
 ```cpp
-  auto process = blook::Process::self();
-  auto mod = process->module("user32.dll").value();
-  for (auto& func: mod.obtain_exports()) {
-      auto hook = mod;
-                  ->exports(func)
-                  ->inline_hook();
-      hook->install([=](int64_t a) -> int64_t {
-          // Yes, capture anything you want!
-          std::cout << "Someone called: " << std::hex << func << "\n";
-          return hook->trampoline_t<int64_t(int64_t)>()(a);
-      });
-  }
+auto process = blook::Process::self();
+auto mod = process->module("user32.dll").value();
+for (auto& func: mod.obtain_exports()) {
+    auto hook = mod
+                ->exports(func)
+                ->inline_hook();
+    hook->install([=](int64_t a) -> int64_t {
+        // Yes, capture anything you want!
+        std::cout << "Someone called: " << std::hex << func << "\n";
+        return hook->trampoline_t<int64_t(int64_t)>()(a);
+    });
+}
+```
+
+How about hooking a method that's not exported?
+
+```cpp
+auto process = blook::Process::self();
+auto mod = process->module().value();
+// Let's find the specific function in .text (Code Segment) with blook's AOB shortcut!.
+auto text_segment = mod->section(".text").value();
+using ANYp = blook::memory_scanner::ANYPattern;
+auto hook = text_segment.find_one({
+    0x55, 0x56, 0x57, 0x48, 0x83, 0xec, 0x70, 0x48, 0x8d, 0x6c, 0x24, 0x70,
+    0x48, 0xc7, 0x45, 0xf8, 0xfe, 0xff, 0xff, 0xff, 0x48, 0x89, 0xce, 0x48,
+    0x8d, 0x7d, 0xd0, 0x48, 0x89, 0xfa, 0xe8, 0x44, ANYp, ANYp, ANYp
+}).sub(-0x28).inline_hook();
+
+// And now it's easy to hook it.
+hook->install([=](int64_t a) -> int64_t {
+    std::cout << "Someone called some internal function!\n";
+    return hook->trampoline_t<int64_t(int64_t)>()(a);
+});
 ```
 
 ## Getting started
