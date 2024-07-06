@@ -17,10 +17,11 @@ add_library(blook STATIC
         include/blook/utils.h
         src/Hook.cpp
         src/misc.cpp
+        include/misc.h
+        include/xtd.h
         include/blook/misc.h
         src/mb_kmp.cpp
         include/blook/memory_scanner/mb_kmp.h
-        src/mb_kmp.cpp
 )
 include_directories(blook ./include)
 target_link_libraries(blook zasm::zasm)
