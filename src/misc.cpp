@@ -14,15 +14,15 @@
 
 namespace blook {
     void *NtCurrentPeb() {
-        __asm {
+     /*   __asm {
                 mov eax, fs:[0x30];
-        }
+        }*/
         }
 PEB_LDR_DATA *NtGetPebLdr(void *peb) {
-        __asm {
+     /*   __asm {
                 mov eax, peb;
                 mov eax, [eax + 0xc];
-        }
+        }*/
     }
 // https://anhkgg.com/dllhijack/
     VOID SuperDllHijack(const char *dllname, HMODULE hMod) {
