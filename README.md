@@ -4,7 +4,7 @@
 
 
 <div align="center">
-<img src="./resources/icon.webp" height="300">
+<img src="./resources/icon.webp" width="270">
 <h1 style="margin-top: -30px;">&nbsp;&nbsp;blook</h1>
 <h4>A modern C++ library for hacking.</h4>
 </div>
