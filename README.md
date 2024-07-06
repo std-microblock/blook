@@ -1,3 +1,8 @@
+> [!WARNING] 
+This project is in a relatively early stage and is not ready for production. Use at your own risk.  
+此项目仍较早期，不建议实际使用。
+
+
 <div align="center">
 <img src="./resources/icon.webp" height="300">
 <h1 style="margin-top: -30px;">&nbsp;&nbsp;blook</h1>
@@ -26,7 +31,7 @@ Inline hook a function? Easy!
 ```cpp
   auto process = blook::Process::self();
   auto mod = process->module("user32.dll").value();
-  for(auto& func: mod.obtain_exports()) {
+  for (auto& func: mod.obtain_exports()) {
       auto hook = mod;
                   ->exports(func)
                   ->inline_hook();
