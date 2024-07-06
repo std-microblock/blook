@@ -50,8 +50,11 @@ void test_inline_hook() {
 void test_section_view() {
     auto process = blook::Process::self();
     auto mod = process->module().value();
-    auto text = mod->section("data").value();
-    std::cout << text.data() << " " << text.size();
+    auto text = mod->section(".rdata").value();
+    static auto a_special_variable = "this_is_some_special_string_that_represents_a_damn_vip_proc";
+    std::cout << text.data() << " " << text.size() << std::endl;
+    const auto p = text.find_one("special_string");
+    std::cout << std::hex << "" << p.value().data();
 }
 
 int main() {

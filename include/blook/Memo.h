@@ -4,6 +4,9 @@
 #include <optional>
 #include <span>
 #include <vector>
+#include <string_view>
+
+#include "memory_scanner/mb_kmp.h"
 
 namespace blook {
     class Process;
@@ -11,9 +14,10 @@ namespace blook {
     class Function;
 
     class Pointer {
-        std::shared_ptr<Process> proc;
-        size_t offset;
 
+    protected:
+        size_t offset;
+        std::shared_ptr<Process> proc;
     public:
         static void *malloc_rwx(size_t size);
 
@@ -85,6 +89,20 @@ namespace blook {
 
         [[nodiscard]] size_t size() const {
             return _size;
+        }
+
+        template<class Scanner = memory_scanner::mb_kmp>
+        inline std::optional<Pointer> find_one(const std::vector<uint8_t> &pattern) {
+            const auto span = std::span<uint8_t>((uint8_t *) offset, _size);
+            const auto aa = span.data();
+            std::optional<size_t> res = Scanner::searchOne(span, pattern);
+            return res.and_then([this](const auto val) {
+                return std::optional<Pointer>(Pointer(this->proc, val));
+            });
+        }
+
+        inline auto find_one(std::string_view sv) {
+            return find_one(std::vector<uint8_t>(sv.begin(), sv.end()));
         }
     };
 } // namespace blook
