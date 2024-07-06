@@ -26,7 +26,7 @@ PEB_LDR_DATA *NtGetPebLdr(void *peb) {
     }
 // https://anhkgg.com/dllhijack/
     VOID SuperDllHijack(const char *dllname, HMODULE hMod) {
-        char wszDllName[100] = {0};
+        char wszDllName[200] = {0};
         void *peb = NtCurrentPeb();
         PEB_LDR_DATA *ldr = NtGetPebLdr(peb);
 
@@ -62,7 +62,7 @@ void misc::initialize_dll_hijacking() {
   SuperDllHijack(currentDll.c_str(), origDll);
 }
     void* misc::get_current_module() {
-        HMODULE hModule = NULL;
+        HMODULE hModule = nullptr;
         GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
                           (LPCTSTR)get_current_module, &hModule);
 

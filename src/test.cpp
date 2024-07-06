@@ -50,7 +50,7 @@ void test_inline_hook() {
 void test_section_view() {
     auto process = blook::Process::self();
     auto mod = process->module().value();
-    auto text = mod->section("text").value();
+    auto text = mod->section("data").value();
     std::cout << text.data() << " " << text.size();
 }
 

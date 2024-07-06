@@ -131,12 +131,12 @@ namespace blook {
                                      "current process currently. "
                                      "Inject your code into target process first.");
 
-        PIMAGE_NT_HEADERS NtHeaders = (PIMAGE_NT_HEADERS) (pModule + ((PIMAGE_DOS_HEADER) pModule)->e_lfanew);
+        auto NtHeaders = (PIMAGE_NT_HEADERS) ((char *) pModule + ((PIMAGE_DOS_HEADER) pModule)->e_lfanew);
         PIMAGE_SECTION_HEADER SectionHeaders = IMAGE_FIRST_SECTION(NtHeaders);
         for (WORD SectionIndex = 0; SectionIndex < NtHeaders->FileHeader.NumberOfSections; SectionIndex++) {
             PIMAGE_SECTION_HEADER SectionHeader = &SectionHeaders[SectionIndex];
 
-            if (strcmp((char *) SectionHeader->Name, name.c_str()) != 0) {
+            if (std::strcmp((char *) SectionHeader->Name, name.c_str()) == 0) {
                 return MemoryRange(proc, (void *) ((size_t) pModule + SectionHeader->VirtualAddress),
                                    SectionHeader->SizeOfRawData);
             }
