@@ -18,4 +18,13 @@ std::shared_ptr<InlineHook> Function::inline_hook() {
 }
 Function::Function(std::shared_ptr<Process> proc, void *p_func)
     : process(std::move(proc)), ptr(p_func) {}
+size_t Function::guess_size() {
+  for (size_t p = (size_t)ptr; p < (size_t)ptr + 50000; p++) {
+    if ((*(uint8_t *)p) == 0xCC) {
+      return p - (size_t)ptr;
+    }
+  }
+
+  return 50000;
+}
 } // namespace blook

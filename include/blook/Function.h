@@ -28,6 +28,8 @@ class Function {
     return (*fn)(args...);
   }
 
+  size_t guess_size();
+
 public:
   Function(std::shared_ptr<Process> proc, void *p_func);
   Function(std::shared_ptr<Process> proc, void *p_func, std::string name);
