@@ -18,7 +18,7 @@ add_library(blook STATIC
         src/Hook.cpp
         src/misc.cpp
         include/misc.h
-        include/xtd.h
+        include/blook/xtd.h
         include/blook/misc.h
         src/mb_kmp.cpp
         include/blook/memory_scanner/mb_kmp.h

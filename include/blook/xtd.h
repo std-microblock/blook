@@ -1,11 +1,10 @@
 #pragma once
-
+#include <limits.h>
 namespace blook::xtd {
 
 namespace msvc {
 
-template <typename T>
-class basic_string {
+template <typename T> class basic_string {
 private:
   static constexpr size_t BUFSIZE = 16 / sizeof(T);
   union {
@@ -15,14 +14,10 @@ private:
   size_t size;
   size_t res;
 
-  bool _Large_mode_engaged() const noexcept {
-    return res > 0xF;
-  }
+  bool _Large_mode_engaged() const noexcept { return res > 0xF; }
 
 public:
-  T *data() noexcept {
-    return _Large_mode_engaged() ? ptr : buf;
-  }
+  T *data() noexcept { return _Large_mode_engaged() ? ptr : buf; }
 };
 
 using string = basic_string<char>;
@@ -31,8 +26,7 @@ using string = basic_string<char>;
 
 namespace gcc {
 
-template <typename T>
-class basic_string {
+template <typename T> class basic_string {
 private:
   static constexpr size_t _S_local_capacity = 15 / sizeof(T);
   T *_M_p;
@@ -49,8 +43,7 @@ using string = basic_string<char>;
 
 namespace clang {
 
-template <typename T>
-class basic_string {
+template <typename T> class basic_string {
 private:
   struct __long {
     size_t __is_long_ : 1;
@@ -70,9 +63,8 @@ private:
     T __data_[__min_cap];
   };
 
-  static_assert(
-      sizeof(__short) == (sizeof(T) * (__min_cap + 1)),
-      "__short has an unexpected size.");
+  static_assert(sizeof(__short) == (sizeof(T) * (__min_cap + 1)),
+                "__short has an unexpected size.");
 
   union __rep {
     __short __s;
@@ -86,21 +78,13 @@ private:
     // return __r_.__s.__is_long_;
   }
 
-  T *__get_short_pointer() noexcept {
-    return __r_.__s.__data_;
-  }
+  T *__get_short_pointer() noexcept { return __r_.__s.__data_; }
 
-  const T *__get_short_pointer() const noexcept {
-    return __r_.__s.__data_;
-  }
+  const T *__get_short_pointer() const noexcept { return __r_.__s.__data_; }
 
-  T *__get_long_pointer() noexcept {
-    return __r_.__l.__data_;
-  }
+  T *__get_long_pointer() noexcept { return __r_.__l.__data_; }
 
-  const T *__get_long_pointer() const noexcept {
-    return __r_.__l.__data_;
-  }
+  const T *__get_long_pointer() const noexcept { return __r_.__l.__data_; }
 
   T *__get_pointer() noexcept {
     return __is_long() ? __get_long_pointer() : __get_short_pointer();
@@ -110,22 +94,14 @@ private:
     return __is_long() ? __get_long_pointer() : __get_short_pointer();
   }
 
-  size_t __get_long_size() const noexcept {
-    return __r_.__l.__size_;
-  }
+  size_t __get_long_size() const noexcept { return __r_.__l.__size_; }
 
-  size_t __get_short_size() const noexcept {
-    return __r_.__s.__size_;
-  }
+  size_t __get_short_size() const noexcept { return __r_.__s.__size_; }
 
-  size_t __get_long_cap() const noexcept {
-    return __r_.__l.__cap_;
-  }
+  size_t __get_long_cap() const noexcept { return __r_.__l.__cap_; }
 
 public:
-  T *data() noexcept {
-    return __get_pointer();
-  }
+  T *data() noexcept { return __get_pointer(); }
 
   size_t capacity() const noexcept {
     return (__is_long() ? __get_long_cap() : static_cast<size_t>(__min_cap)) -
@@ -148,19 +124,16 @@ enum Platform {
   Clang,
 };
 
-template <typename T>
-struct basic_string {
+template <typename T> struct basic_string {
   size_t gap[3];
 };
 
 using string = basic_string<char>;
 
-template <typename T>
-class XBasicString {
+template <typename T> class XBasicString {
 public:
   XBasicString(basic_string<T> *data, Platform platform)
-      : raw(data), platform(platform) {
-  }
+      : raw(data), platform(platform) {}
 
   char *data() noexcept {
     switch (platform) {
