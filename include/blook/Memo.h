@@ -85,7 +85,8 @@ public:
     return this->offset <=> o.offset;
   }
 
-  MemoryPatch reassembly(std::function<void(zasm::x86::Assembler)>);
+  [[nodiscard]] MemoryPatch
+      reassembly(std::function<void(zasm::x86::Assembler)>);
 };
 
 class MemoryPatch {
