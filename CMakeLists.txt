@@ -1,11 +1,12 @@
 cmake_minimum_required(VERSION 3.25)
 project(blook)
 
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_C_STANDARD 90)
 add_subdirectory(external/zasm)
 
 enable_language(C ASM_MASM)
+set_source_files_properties(./src/asm.asm PROPERTIES COMPILE_FLAGS "-m64")
 add_library(blook STATIC
         src/Process.cpp
         src/Module.cpp
@@ -17,7 +18,7 @@ add_library(blook STATIC
         src/misc.cpp
         src/mb_kmp.cpp
 )
-include_directories(blook ./include)
+target_include_directories(blook PUBLIC ./include)
 target_link_libraries(blook zasm::zasm)
 set_property(TARGET blook PROPERTY
         MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")

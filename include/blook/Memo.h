@@ -11,116 +11,123 @@
 #include "zasm/zasm.hpp"
 
 namespace blook {
-class Process;
+    class Process;
 
-class Function;
-class MemoryRange;
-class MemoryPatch;
-class Pointer {
+    class Function;
 
-protected:
-  size_t offset;
-  std::shared_ptr<Process> proc;
-  friend MemoryPatch;
+    class MemoryRange;
 
-public:
-  static void *malloc_rwx(size_t size);
+    class MemoryPatch;
 
-  static void protect_rwx(void *p, size_t size);
+    class Pointer {
 
-  static void *malloc_near_rwx(void *near, size_t size);
+    protected:
+        size_t offset;
+        std::shared_ptr<Process> proc;
+        friend MemoryPatch;
 
-  enum class MemoryProtection {
-    Read = 0x0001,
-    Write = 0x0010,
-    Execute = 0x0100,
-    ReadWrite = Read | Write,
-    ReadWriteExecute = Read | Write | Execute,
-    ReadExecute = Read | Execute,
-    rw = ReadWrite,
-    rwx = ReadWriteExecute,
-    rx = ReadExecute
-  };
+    public:
+        static void *malloc_rwx(size_t size);
 
-  void *malloc(size_t size, void *near,
-               MemoryProtection protection = MemoryProtection::rw);
+        static void protect_rwx(void *p, size_t size);
 
-  void *malloc(size_t size, MemoryProtection protection = MemoryProtection::rw);
+        static void *malloc_near_rwx(void *near, size_t size);
 
-  std::vector<uint8_t> read(void *ptr, size_t size);
+        enum class MemoryProtection {
+            Read = 0x0001,
+            Write = 0x0010,
+            Execute = 0x0100,
+            ReadWrite = Read | Write,
+            ReadWriteExecute = Read | Write | Execute,
+            ReadExecute = Read | Execute,
+            rw = ReadWrite,
+            rwx = ReadWriteExecute,
+            rx = ReadExecute
+        };
 
-  std::span<uint8_t> read_leaked(void *ptr, size_t size);
+        void *malloc(size_t size, void *near,
+                     MemoryProtection protection = MemoryProtection::rw);
 
-  template <typename Struct> inline std::optional<Struct> read(void *ptr) {
-    const auto val = read_leaked(ptr, sizeof(Struct));
-    return reinterpret_cast<Struct>(val.data());
-  }
+        void *malloc(size_t size, MemoryProtection protection = MemoryProtection::rw);
 
-  std::optional<std::vector<uint8_t>> try_read(void *ptr, size_t size);
+        std::vector<uint8_t> read(void *ptr, size_t size);
 
-  explicit Pointer(std::shared_ptr<Process> proc);
+        std::span<uint8_t> read_leaked(void *ptr, size_t size);
 
-  Pointer(std::shared_ptr<Process> proc, void *offset);
+        template<typename Struct>
+        inline std::optional<Struct> read(void *ptr) {
+            const auto val = read_leaked(ptr, sizeof(Struct));
+            return reinterpret_cast<Struct>(val.data());
+        }
 
-  Pointer(std::shared_ptr<Process> proc, size_t offset);
+        std::optional<std::vector<uint8_t>> try_read(void *ptr, size_t size);
 
-  Function as_function();
+        explicit Pointer(std::shared_ptr<Process> proc);
 
-  [[nodiscard]] void *data() const;
+        Pointer(std::shared_ptr<Process> proc, void *offset);
 
-  // Pointer operations
-  inline Pointer add(const auto &t) {
-    return {proc, (void *)(offset + (size_t)t)};
-  }
+        Pointer(std::shared_ptr<Process> proc, size_t offset);
 
-  inline Pointer sub(const auto &t) {
-    return {proc, (void *)(offset - (size_t)t)};
-  }
+        Function as_function();
 
-  inline auto operator+(const auto &t) { return this->add(t); }
+        [[nodiscard]] void *data() const;
 
-  inline auto operator-(const auto &t) { return this->sub(t); }
+        // Pointer operations
+        inline Pointer add(const auto &t) const {
+            return {proc, (void *) (offset + (size_t) t)};
+        }
 
-  inline auto operator<=>(const Pointer &o) const {
-    return this->offset <=> o.offset;
-  }
+        inline Pointer sub(const auto &t) const {
+            return {proc, (void *) (offset - (size_t) t)};
+        }
 
-  [[nodiscard]] MemoryPatch
-      reassembly(std::function<void(zasm::x86::Assembler)>);
-};
+        inline auto operator+(const auto &t) { return this->add(t); }
 
-class MemoryPatch {
-  Pointer ptr;
-  std::vector<uint8_t> buffer;
-  bool patched = false;
+        inline auto operator-(const auto &t) { return this->sub(t); }
 
-public:
-  MemoryPatch(Pointer ptr, std::vector<uint8_t> buffer);
-  void swap();
-  bool patch();
-  bool restore();
-};
+        inline auto operator<=>(const Pointer &o) const {
+            return this->offset <=> o.offset;
+        }
 
-class MemoryRange : public Pointer {
-  size_t _size;
+        [[nodiscard]] MemoryPatch
+        reassembly(std::function<void(zasm::x86::Assembler)>);
+    };
 
-public:
-  MemoryRange(std::shared_ptr<Process> proc, void *offset, size_t size);
+    class MemoryPatch {
+        Pointer ptr;
+        std::vector<uint8_t> buffer;
+        bool patched = false;
 
-  [[nodiscard]] size_t size() const { return _size; }
+    public:
+        MemoryPatch(Pointer ptr, std::vector<uint8_t> buffer);
 
-  template <class Scanner = memory_scanner::mb_kmp>
-  inline std::optional<Pointer> find_one(const std::vector<uint8_t> &pattern) {
-    const auto span = std::span<uint8_t>((uint8_t *)offset, _size);
-    const auto aa = span.data();
-    std::optional<size_t> res = Scanner::searchOne(span, pattern);
-    return res.and_then([this](const auto val) {
-      return std::optional<Pointer>(Pointer(this->proc, val));
-    });
-  }
+        void swap();
 
-  inline auto find_one(std::string_view sv) {
-    return find_one(std::vector<uint8_t>(sv.begin(), sv.end()));
-  }
-};
+        bool patch();
+
+        bool restore();
+    };
+
+    class MemoryRange : public Pointer {
+        size_t _size;
+
+    public:
+        MemoryRange(std::shared_ptr<Process> proc, void *offset, size_t size);
+
+        [[nodiscard]] size_t size() const { return _size; }
+
+        template<class Scanner = memory_scanner::mb_kmp>
+        inline std::optional<Pointer> find_one(const std::vector<uint8_t> &pattern) {
+            const auto span = std::span<uint8_t>((uint8_t *) offset, _size);
+            const auto aa = span.data();
+            std::optional<size_t> res = Scanner::searchOne(span, pattern);
+            return res.and_then([this](const auto val) {
+                return std::optional<Pointer>(Pointer(this->proc, val));
+            });
+        }
+
+        inline auto find_one(std::string_view sv) {
+            return find_one(std::vector<uint8_t>(sv.begin(), sv.end()));
+        }
+    };
 } // namespace blook
