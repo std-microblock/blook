@@ -40,6 +40,12 @@ public:
         std::forward<decltype(func)>(func));
     install(try_trampoline);
   }
+  inline void install(void *func, bool try_trampoline = true) {
+    if (installed)
+      throw std::runtime_error("The hook was already installed.");
+    hook_func = func;
+    install(try_trampoline);
+  }
 };
 
 template <typename ReturnVal, typename... Args>
