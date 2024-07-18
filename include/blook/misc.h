@@ -1,4 +1,7 @@
 #pragma once
+
+#include "dirty_windows.h"
+
 namespace blook {
 
     class misc {
