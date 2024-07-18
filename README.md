@@ -55,7 +55,7 @@ auto hook = text_segment.find_one({
     0x55, 0x56, 0x57, 0x48, 0x83, 0xec, 0x70, 0x48, 0x8d, 0x6c, 0x24, 0x70,
     0x48, 0xc7, 0x45, 0xf8, 0xfe, 0xff, 0xff, 0xff, 0x48, 0x89, 0xce, 0x48,
     0x8d, 0x7d, 0xd0, 0x48, 0x89, 0xfa, 0xe8, 0x44, ANYp, ANYp, ANYp
-})->sub(-0x28).inline_hook();
+})->sub(-0x28).as_function().inline_hook();
 
 // And now it's easy to hook it.
 hook->install([=](int64_t a) -> int64_t {
@@ -85,7 +85,7 @@ Then, import it and add it to your project in `CMakeLists.txt`
 
 ```cmake
 add_subdirectory(external/blook)
-target_link_libraries(your_target blook::blook)
+target_link_libraries(your_target blook)
 ```
 
 ### b) CMake FetchContent
@@ -101,7 +101,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(blook)
 ####################################
 
-target_link_libraries(your_target blook::blook)
+target_link_libraries(your_target blook)
 ```
 
 ### Manual installation
