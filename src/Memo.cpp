@@ -177,9 +177,9 @@ void *Pointer::data() const { return (void *)offset; }
 std::optional<Function> Pointer::guess_function(size_t max_scan_size) {
   for (auto p = (size_t)offset; p > (size_t)offset - max_scan_size; p -= 4) {
     const auto v = (*(uint8_t *)p);
-    const auto v1 = (*(uint8_t *)p - 1);
-    const auto v2 = (*(uint8_t *)p - 2);
-    const auto v3 = (*(uint8_t *)p - 3);
+    const auto v1 = (*((uint8_t *)p - 1));
+    const auto v2 = (*((uint8_t *)p - 2));
+    const auto v3 = (*((uint8_t *)p - 3));
     if (v == 0xCC || v == 0xC3) {
       return blook::Function{proc, (void *)(p + 1)};
     }
