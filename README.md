@@ -93,10 +93,13 @@ target_link_libraries(your_target blook)
 Add those lines into your `CMakeLists.txt`
 
 ```cmake
+include(FetchContent)
+
 ###### Fetch blook from GitHub #####
 FetchContent_Declare(
         blook
         GIT_REPOSITORY https://github.com/MicroCBer/blook
+        GIT_TAG origin/main
 )
 FetchContent_MakeAvailable(blook)
 ####################################
