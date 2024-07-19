@@ -9,8 +9,11 @@
 
 #include "Windows.h"
 #include "blook/Process.h"
+#include "zasm/formatter/formatter.hpp"
 #include <cstdint>
 #include <utility>
+
+#include <iostream>
 
 namespace blook {
 void *Pointer::malloc_rwx(size_t size) {
@@ -172,16 +175,77 @@ bool MemoryPatch::restore() {
 
 void *Pointer::data() const { return (void *)offset; }
 std::optional<Function> Pointer::guess_function(size_t max_scan_size) {
-  for (auto p = (size_t)offset; p > (size_t)offset - max_scan_size; p--) {
-    if ((*(uint8_t *)p) == 0xCC) {
+  for (auto p = (size_t)offset; p > (size_t)offset - max_scan_size; p -= 4) {
+    const auto v = (*(uint8_t *)p);
+    const auto v1 = (*(uint8_t *)p - 1);
+    const auto v2 = (*(uint8_t *)p - 2);
+    const auto v3 = (*(uint8_t *)p - 3);
+    if (v == 0xCC || v == 0xC3) {
       return blook::Function{proc, (void *)(p + 1)};
     }
+    if (v1 == 0 && v2 == 0 && v3 == 0 && v == 0)
+      return blook::Function{proc, (void *)(p + 1)};
   }
 
+  return {};
+}
+std::optional<Module> Pointer::owner_module() {
+  MEMORY_BASIC_INFORMATION inf;
+  VirtualQuery(data(), &inf, 0x8);
+
+  if (inf.AllocationBase)
+    return Module{proc, (HMODULE)inf.AllocationBase};
   return {};
 }
 
 MemoryRange::MemoryRange(std::shared_ptr<Process> proc, void *offset,
                          size_t size)
     : Pointer(std::move(proc), offset), _size(size) {}
+std::optional<Pointer> MemoryRange::find_disassembly(
+    std::function<bool(const zasm::InstructionDetail &, size_t)> find_func) {
+  using namespace zasm;
+  Decoder d(MachineMode::AMD64);
+  auto owner_mod = owner_module().value();
+  Pointer cursor = *this;
+  for (; (size_t)((cursor - this->offset).data()) < _size;) {
+    const auto r = d.decode(cursor.data(), 32, (size_t)cursor.data());
+    if (!r)
+      return {};
+
+    const auto size = r->getLength();
+    if (find_func(r.value(), (size_t)cursor.data()))
+      return cursor;
+    cursor += size;
+  }
+
+  return {};
+}
+std::optional<Pointer> MemoryRange::find_xref(Pointer p) {
+  auto owner_mod = p.owner_module().value();
+  return find_disassembly([=](const auto &instr, auto offset) -> bool {
+    using namespace zasm;
+
+    for (std::size_t i = 0; i < instr.getOperandCount(); i++) {
+      const auto &op = instr.getOperand(i);
+
+      if (const Mem *opMem = op.getIf<Mem>(); opMem != nullptr) {
+        if (opMem->getBase() == x86::rip) {
+          auto ptr = (void *)opMem->getDisplacement();
+          if (p.data() == ptr) {
+            return true;
+          }
+        }
+      }
+
+      if (const Imm *opImm = op.getIf<Imm>(); opImm != nullptr) {
+        const auto data = opImm->value<size_t>();
+        if (p.data() == (void *)data)
+          return true;
+      }
+    }
+
+    return false;
+  });
+}
+
 } // namespace blook

@@ -1,4 +1,6 @@
+
 #include "blook/blook.h"
+
 #include "Windows.h"
 #include <format>
 
@@ -48,19 +50,33 @@ void test_inline_hook() {
 }
 
 void test_section_view() {
+  const char *xchar =
+      "this_is_some_special_string_that_represents_a_damn_vip_proc";
+
   auto process = blook::Process::self();
   auto mod = process->module().value();
-  auto text = mod->section(".rdata").value();
-  static auto a_special_variable =
-      "this_is_some_special_string_that_represents_a_damn_vip_proc";
-  std::cout << text.data() << " " << text.size() << std::endl;
-  const auto p = text.find_one("special_string");
-  std::cout << std::hex << "" << p.value().data();
+  auto rdata = mod->section(".rdata").value();
+  auto text = mod->section(".text").value();
+
+  auto a_special_variable = xchar;
+  std::cout << a_special_variable << std::endl;
+  const auto p = rdata.find_one("this_is_some_special_string_").value();
+  std::cout << "Found target special string at: " << std::hex << "" << p.data()
+            << std::endl;
+
+  auto xref = text.find_xref(p).value();
+  std::cout << "Found target usage at: " << std::hex << "" << xref.data()
+            << std::endl;
+
+  auto guess_func = xref.guess_function().value().data();
+  std::cout << "Target function guessed: " << std::hex << guess_func
+            << std::endl;
+  assert(guess_func == &test_section_view);
 }
 
 int main() {
   try {
-    test_wrap_function();
+    test_section_view();
   } catch (std::exception &e) {
     std::cerr << e.what();
     abort();

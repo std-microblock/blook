@@ -12,11 +12,10 @@
 
 namespace blook {
 class Process;
-
 class Function;
 class MemoryRange;
 class MemoryPatch;
-
+class Module;
 class Pointer {
 
 protected:
@@ -82,6 +81,9 @@ public:
 
   inline auto operator-(const auto &t) { return this->sub(t); }
 
+  inline auto operator+=(const auto &t) { this->offset += (size_t)t; };
+  inline auto operator-=(const auto &t) { this->offset -= (size_t)t; };
+
   inline auto operator<=>(const Pointer &o) const {
     return this->offset <=> o.offset;
   }
@@ -90,6 +92,7 @@ public:
       reassembly(std::function<void(zasm::x86::Assembler)>);
 
   std::optional<Function> guess_function(size_t max_scan_size = 50000);
+  std::optional<Module> owner_module();
 };
 
 class MemoryPatch {
@@ -154,5 +157,10 @@ public:
   inline auto find_one(std::string_view sv) {
     return find_one(std::vector<uint8_t>(sv.begin(), sv.end()));
   }
+
+  std::optional<Pointer> find_disassembly(
+      std::function<bool(const zasm::InstructionDetail &, size_t)> find_func);
+
+  std::optional<Pointer> find_xref(Pointer p);
 };
 } // namespace blook

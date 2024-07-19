@@ -74,7 +74,7 @@ public:
     assert(funcAddress != -1);
     return reinterpret_cast<ReturnVal (*)(Args...)>(funcAddress);
   }
-
+  template <typename T = void *> T data() { return (T)ptr; }
   std::shared_ptr<InlineHook> inline_hook();
 };
 
