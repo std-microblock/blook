@@ -171,6 +171,15 @@ bool MemoryPatch::restore() {
 }
 
 void *Pointer::data() const { return (void *)offset; }
+std::optional<Function> Pointer::guess_function(size_t max_scan_size) {
+  for (auto p = (size_t)offset; p > (size_t)offset - max_scan_size; p--) {
+    if ((*(uint8_t *)p) == 0xCC) {
+      return blook::Function{proc, (void *)(p + 1)};
+    }
+  }
+
+  return {};
+}
 
 MemoryRange::MemoryRange(std::shared_ptr<Process> proc, void *offset,
                          size_t size)

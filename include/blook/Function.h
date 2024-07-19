@@ -1,4 +1,5 @@
 #pragma once
+#include "dirty_windows.h"
 
 #include <format>
 #include <functional>
@@ -6,7 +7,6 @@
 #include <memory>
 
 #include "Memo.h"
-#include "dirty_windows.h"
 #include "utils.h"
 #include "zasm/zasm.hpp"
 

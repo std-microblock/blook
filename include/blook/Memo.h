@@ -88,6 +88,8 @@ public:
 
   [[nodiscard]] MemoryPatch
       reassembly(std::function<void(zasm::x86::Assembler)>);
+
+  std::optional<Function> guess_function(size_t max_scan_size = 50000);
 };
 
 class MemoryPatch {
