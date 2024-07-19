@@ -149,7 +149,8 @@ MemoryPatch::MemoryPatch(Pointer ptr, std::vector<uint8_t> buffer)
 void MemoryPatch::swap() {
   const auto target = reinterpret_cast<void *>(ptr.offset);
   Pointer::protect_rwx(target, buffer.size());
-  std::vector<uint8_t> tmp(buffer);
+  std::vector<uint8_t> tmp(buffer.size());
+  std::memcpy(tmp.data(), buffer.data(), buffer.size());
   std::memcpy(buffer.data(), target, buffer.size());
   std::memcpy(target, tmp.data(), tmp.size());
   patched = !patched;
@@ -159,6 +160,8 @@ bool MemoryPatch::patch() {
     swap();
   else
     throw std::runtime_error("MemoryPatch already applied!");
+
+  return true;
 }
 bool MemoryPatch::restore() {
   if (patched)

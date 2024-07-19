@@ -10,7 +10,8 @@
 #include "utils.h"
 #include "zasm/zasm.hpp"
 
-extern "C" int64_t getR11();
+int64_t getR11();
+void initGetR11();
 
 namespace blook {
 class Module;
@@ -52,7 +53,7 @@ public:
       -> ReturnVal (*)(Args...) {
     using namespace zasm;
     Program program(MachineMode::AMD64);
-
+    initGetR11();
     x86::Assembler a(program);
     const auto label = a.createLabel();
     a.bind(label);

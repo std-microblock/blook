@@ -5,13 +5,11 @@ set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_C_STANDARD 90)
 add_subdirectory(external/zasm)
 
-enable_language(C ASM_MASM)
-set_source_files_properties(./src/asm.asm PROPERTIES COMPILE_FLAGS "-m64")
 add_library(blook STATIC
         src/Process.cpp
         src/Module.cpp
         src/Function.cpp
-        src/Memo.cpp src/asm.asm
+        src/Memo.cpp
         src/Hook.cpp
         src/utils.cpp
         src/Hook.cpp

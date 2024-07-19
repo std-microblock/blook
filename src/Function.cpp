@@ -1,6 +1,7 @@
 #include "blook/Function.h"
 #include "blook/Hook.h"
 #include "blook/Memo.h"
+#include "blook/Process.h"
 #include <format>
 #include <string>
 
@@ -28,3 +29,19 @@ size_t Function::guess_size() {
   return 50000;
 }
 } // namespace blook
+
+int64_t getR11() { abort(); }
+void initGetR11() {
+  static bool initialized = false;
+  if (initialized)
+    return;
+  initialized = true;
+  auto self = blook::Process::self();
+  self->memo()
+      .add((size_t)&getR11)
+      .reassembly([](auto a) {
+        a.mov(zasm::x86::rax, zasm::x86::r11);
+        a.ret();
+      })
+      .patch();
+}
