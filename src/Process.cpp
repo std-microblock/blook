@@ -32,7 +32,6 @@ static HMODULE GetProcessBaseAddress(HANDLE processHandle,
   std::transform(modulename.begin(), modulename.end(), modulename.begin(),
                  [](unsigned char c) { return std::tolower(c); });
 
-  const auto a = GetProcessId(processHandle);
   if (processHandle) {
     if (EnumProcessModules(processHandle, NULL, 0, &bytesRequired)) {
       if (bytesRequired) {
@@ -103,7 +102,7 @@ std::optional<std::vector<std::uint8_t>> Process::read(void *addr,
                                                        size_t size) const {
   std::vector<std::uint8_t> data;
   data.resize(size);
-  if (read(data.data(), size))
+  if (read(data.data(), addr, size))
     return data;
   return {};
 }
@@ -127,7 +126,7 @@ Process::Process(std::string name) : _memo(p_self.lock()) {
   }
 }
 
-Process::Process(HANDLE h) : h(h), _memo(p_self.lock()) {
+Process::Process(HANDLE h) : _memo(p_self.lock()), h(h) {
   this->pid = GetProcessId(h);
 }
 

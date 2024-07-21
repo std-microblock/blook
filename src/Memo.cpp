@@ -171,6 +171,8 @@ bool MemoryPatch::restore() {
     swap();
   else
     throw std::runtime_error("MemoryPatch is not patched!");
+
+  return true;
 }
 
 void *Pointer::data() const { return (void *)offset; }
