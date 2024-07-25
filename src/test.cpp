@@ -72,9 +72,33 @@ void test_section_view() {
             << ", actual: " << &test_section_view << std::endl;
 }
 
+struct TestStruct {
+  union U {
+    TestStruct *s;
+    size_t data;
+  } slot[100];
+};
+
+void test_memory_offsets() {
+  TestStruct s{};
+  s.slot[0x23].s = new TestStruct();
+  s.slot[0x23].s->slot[0x12].s = new TestStruct();
+  s.slot[0x23].s->slot[0x12].s->slot[0x4].data = 114514;
+
+  auto ptr = (size_t ***)&s;
+  blook::Pointer ptr2 = (void *)&s;
+
+  auto val = *(*(*(ptr + 0x23) + 0x12) + 0x4);
+  auto val2 = **ptr2.offsets({0x23, 0x12, 0x4}).value().read<size_t>();
+
+  std::cout << "Normal:" << val << " Blook:" << val2;
+
+  assert(val == val2);
+}
+
 int main() {
   try {
-    test_section_view();
+    test_memory_offsets();
   } catch (std::exception &e) {
     std::cerr << e.what();
     abort();

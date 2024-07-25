@@ -115,7 +115,7 @@ std::optional<std::vector<uint8_t>> Pointer::try_read(void *ptr, size_t size) {
 
 std::span<uint8_t> Pointer::read_leaked(void *ptr, size_t size) {
   void *mem = malloc(size);
-  proc->read(mem, (uint8_t *)((size_t)proc->h + offset), size);
+  proc->read(mem, (uint8_t *)(offset + (size_t)ptr), size);
   return {(uint8_t *)mem, size};
 }
 
@@ -199,6 +199,22 @@ std::optional<Module> Pointer::owner_module() {
     return Module{proc, (HMODULE)inf.AllocationBase};
   return {};
 }
+std::optional<Pointer> Pointer::offsets(const std::vector<size_t> &offsets,
+                                        size_t scale) {
+  Pointer ptr = *this;
+  for (const auto &offset_next :
+       std::span(offsets.begin(), offsets.end() - 1)) {
+    ptr += offset_next * scale;
+    const auto data = ptr.read<size_t>();
+    if (!data)
+      return {};
+    ptr = (void *)*data.value();
+  }
+
+  return ptr.add(offsets.back() * scale);
+}
+
+Pointer::Pointer(void *offset) : Pointer(blook::Process::self(), offset) {}
 
 MemoryRange::MemoryRange(std::shared_ptr<Process> proc, void *offset,
                          size_t size)

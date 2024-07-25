@@ -151,9 +151,6 @@ bool Process::is_self() const { return GetCurrentProcessId() == pid; }
 Pointer Process::memo() { return _memo; }
 
 void *Process::read(void *dest, void *addr, size_t size) const {
-  SYSTEM_INFO sysinfo;
-  GetSystemInfo(&sysinfo);
-
   if (ReadProcessMemory(this->h, (void *)(addr), dest, size, nullptr))
     return dest;
   return nullptr;

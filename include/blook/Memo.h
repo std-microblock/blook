@@ -51,9 +51,14 @@ public:
 
   std::span<uint8_t> read_leaked(void *ptr, size_t size);
 
-  template <typename Struct> inline std::optional<Struct> read(void *ptr) {
+  template <typename Struct>
+  inline std::optional<Struct *> read(void *ptr = nullptr) {
     const auto val = read_leaked(ptr, sizeof(Struct));
-    return reinterpret_cast<Struct>(val.data());
+    return reinterpret_cast<Struct *>(val.data());
+  }
+
+  template <typename Struct> inline std::optional<Struct> read(size_t ptr) {
+    return read<Struct>((void *)ptr);
   }
 
   std::optional<std::vector<uint8_t>> try_read(void *ptr, size_t size);
@@ -63,6 +68,8 @@ public:
   Pointer(std::shared_ptr<Process> proc, void *offset);
 
   Pointer(std::shared_ptr<Process> proc, size_t offset);
+  // Construct a pointer within current process.
+  Pointer(void *offset);
 
   Function as_function();
 
@@ -93,6 +100,10 @@ public:
 
   std::optional<Function> guess_function(size_t max_scan_size = 50000);
   std::optional<Module> owner_module();
+
+  // ptr.offsets(0x1f, 0x3f) equals to (*(ptr + 0x1f) + 0x3f)
+  std::optional<Pointer> offsets(const std::vector<size_t> &offsets,
+                                 size_t scale = sizeof(void *));
 };
 
 class MemoryPatch {
