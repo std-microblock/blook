@@ -138,14 +138,14 @@ public:
     });
   }
 
-  template <class Scanner = memory_scanner::mb_kmp, typename T>
+  template <class Scanner = memory_scanner::mb_kmp>
   inline std::optional<Pointer>
   find_one(std::initializer_list<uint8_t> pattern) {
     return find_one<Scanner>(
         std::vector<uint8_t>(std::forward<decltype(pattern)>(pattern)));
   }
 
-  template <class Scanner = memory_scanner::mb_kmp, typename T>
+  template <class Scanner = memory_scanner::mb_kmp>
   inline std::optional<Pointer>
   find_one(std::initializer_list<std::initializer_list<uint8_t>> pattern) {
     for (const auto &pat : pattern) {
