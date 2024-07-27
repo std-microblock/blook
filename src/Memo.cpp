@@ -110,7 +110,7 @@ std::vector<uint8_t> Pointer::read(void *ptr, size_t size) {
 }
 
 std::optional<std::vector<uint8_t>> Pointer::try_read(void *ptr, size_t size) {
-  return proc->read((void *)((size_t)proc->h + offset), size);
+  return proc->read((void *)((size_t)ptr + offset), size);
 }
 
 std::span<uint8_t> Pointer::read_leaked(void *ptr, size_t size) {
