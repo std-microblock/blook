@@ -226,10 +226,16 @@ std::optional<Pointer> MemoryRange::find_disassembly(
   auto owner_mod = owner_module().value();
   Pointer cursor = *this;
   for (; (size_t)((cursor - this->offset).data()) < _size;) {
-    const auto r = d.decode(cursor.data(), 32, (size_t)cursor.data());
-    if (!r)
-      return {};
-
+    const auto r = d.decode(cursor.data(), 64, (size_t)cursor.data());
+    if (!r.hasValue()) {
+      d = Decoder(MachineMode::AMD64);
+      //      std::cerr << "blook xref warning: " << r.error().getErrorMessage()
+      //                << " at: owner_mod + " << std::hex
+      //                << ((size_t)cursor.data() - (size_t)owner_mod.data())
+      //                << std::endl;
+      cursor += 4;
+      continue;
+    }
     const auto size = r->getLength();
     if (find_func(r.value(), (size_t)cursor.data()))
       return cursor;

@@ -38,7 +38,7 @@ public:
   }
 
   std::optional<MemoryRange> section(const std::string &name);
-
+  void *data();
   size_t size();
 
   enum class InjectMethod {

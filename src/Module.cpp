@@ -156,4 +156,5 @@ size_t Module::size() {
   return 0;
 #endif
 }
+void *Module::data() { return pModule; }
 } // namespace blook
