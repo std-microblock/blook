@@ -132,7 +132,8 @@ public:
   [[nodiscard]] size_t size() const { return _size; }
 
   template <class Scanner = memory_scanner::mb_kmp>
-  inline std::optional<Pointer> find_one(const std::vector<uint8_t> pattern) {
+  inline std::optional<Pointer>
+  find_one(const std::vector<uint8_t> pattern) const {
     const auto span = std::span<uint8_t>((uint8_t *)offset, _size);
     std::optional<size_t> res = Scanner::searchOne(span, pattern);
     return res.and_then([this](const auto val) {
@@ -142,14 +143,14 @@ public:
 
   template <class Scanner = memory_scanner::mb_kmp>
   inline std::optional<Pointer>
-  find_one(std::initializer_list<uint8_t> pattern) {
+  find_one(std::initializer_list<uint8_t> pattern) const {
     return find_one<Scanner>(
         std::vector<uint8_t>(std::forward<decltype(pattern)>(pattern)));
   }
 
   template <class Scanner = memory_scanner::mb_kmp>
-  inline std::optional<Pointer>
-  find_one(std::initializer_list<std::initializer_list<uint8_t>> pattern) {
+  inline std::optional<Pointer> find_one(
+      std::initializer_list<std::initializer_list<uint8_t>> pattern) const {
     for (const auto &pat : pattern) {
       const auto res = find_one<Scanner>(
           std::vector<uint8_t>(std::forward<decltype(pat)>(pat)));
@@ -161,13 +162,14 @@ public:
   }
 
   template <class Scanner = memory_scanner::mb_kmp, typename I>
-  inline std::optional<Pointer> find_one(const std::pair<I, size_t> &pattern) {
+  inline std::optional<Pointer>
+  find_one(const std::pair<I, size_t> &pattern) const {
     const auto res = find_one<Scanner>(pattern.first);
     return res.and_then(
         [&](const auto val) { return std::optional(val + pattern.second); });
   }
 
-  inline auto find_one(std::string_view sv) {
+  inline auto find_one(std::string_view sv) const {
     return find_one(std::vector<uint8_t>(sv.begin(), sv.end()));
   }
 
