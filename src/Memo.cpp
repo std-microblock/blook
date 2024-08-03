@@ -177,7 +177,7 @@ bool MemoryPatch::restore() {
 
 void *Pointer::data() const { return (void *)offset; }
 std::optional<Function> Pointer::guess_function(size_t max_scan_size) {
-  for (auto p = (size_t)offset; p > (size_t)offset - max_scan_size; p -= 4) {
+  for (auto p = (size_t)offset; p > (size_t)offset - max_scan_size; p -= 1) {
     const auto v = (*(uint8_t *)p);
     const auto v1 = (*((uint8_t *)p - 1));
     const auto v2 = (*((uint8_t *)p - 2));
@@ -215,6 +215,19 @@ std::optional<Pointer> Pointer::offsets(const std::vector<size_t> &offsets,
 }
 
 Pointer::Pointer(void *offset) : Pointer(blook::Process::self(), offset) {}
+std::optional<Pointer>
+Pointer::find_upwards(std::initializer_list<uint8_t> pattern,
+                      size_t max_scan_size) {
+  Pointer p = *this;
+  for (; p > this - max_scan_size; p -= 1) {
+    if (memcmp(pattern.begin(), (unsigned char *)p.data(), pattern.size()) ==
+        0) {
+      return p;
+    }
+  }
+
+  return {};
+}
 
 MemoryRange::MemoryRange(std::shared_ptr<Process> proc, void *offset,
                          size_t size)
