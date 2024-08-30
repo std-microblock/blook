@@ -15,7 +15,7 @@
 namespace blook {
     class Pointer;
 
-    class Process {
+    class Process : std::enable_shared_from_this<Process> {
 #ifdef _WIN32
 
         DWORD pid;
@@ -25,7 +25,6 @@ namespace blook {
         explicit Process(DWORD pid);
 
 #endif
-        std::weak_ptr<Process> p_self{};
 
         explicit Process(std::string name);
 
@@ -45,9 +44,9 @@ namespace blook {
         read(void *dest, void *addr, size_t size) const;
 
         [[nodiscard]] std::optional<std::shared_ptr<Module>>
-        module(const std::string &name) const;
+        module(const std::string &name);
 
-        [[nodiscard]] std::optional<std::shared_ptr<Module>> module() const;
+        [[nodiscard]] std::optional<std::shared_ptr<Module>> module();
 
         [[nodiscard]] bool is_self() const;
 

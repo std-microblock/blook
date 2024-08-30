@@ -236,17 +236,17 @@ std::optional<Pointer> MemoryRange::find_disassembly(
     std::function<bool(const zasm::InstructionDetail &, size_t)> find_func) {
   using namespace zasm;
   Decoder d(MachineMode::AMD64);
-  auto owner_mod = owner_module().value();
   Pointer cursor = *this;
+
   for (; (size_t)((cursor - this->offset).data()) < _size;) {
-    const auto r = d.decode(cursor.data(), 64, (size_t)cursor.data());
+    const auto r = d.decode(cursor.data(), 30, (size_t)cursor.data());
     if (!r.hasValue()) {
       d = Decoder(MachineMode::AMD64);
       //      std::cerr << "blook xref warning: " << r.error().getErrorMessage()
       //                << " at: owner_mod + " << std::hex
-      //                << ((size_t)cursor.data() - (size_t)owner_mod.data())
+      //                << ((size_t)cursor.data())
       //                << std::endl;
-      cursor += 4;
+      cursor += 1;
       continue;
     }
     const auto size = r->getLength();
@@ -258,7 +258,6 @@ std::optional<Pointer> MemoryRange::find_disassembly(
   return {};
 }
 std::optional<Pointer> MemoryRange::find_xref(Pointer p) {
-  auto owner_mod = p.owner_module().value();
   return find_disassembly([=](const auto &instr, auto offset) -> bool {
     using namespace zasm;
 
