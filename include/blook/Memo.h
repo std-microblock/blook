@@ -35,6 +35,8 @@ namespace blook {
 
         static void *malloc_near_rwx(void *near, size_t size);
 
+        bool operator==(const Pointer &other) const = default;
+
         enum class MemoryProtection {
             Read = 0x0001,
             Write = 0x0010,
@@ -78,6 +80,10 @@ namespace blook {
         // Construct a pointer within current process.
         Pointer(void *offset);
 
+        operator size_t() const {
+            return (size_t) this->offset;
+        }
+
         Function as_function();
 
         [[nodiscard]] void *data() const;
@@ -116,6 +122,10 @@ namespace blook {
         // ptr.offsets(0x1f, 0x3f) equals to (*(ptr + 0x1f) + 0x3f)
         std::optional<Pointer> offsets(const std::vector<size_t> &offsets,
                                        size_t scale = sizeof(void *));
+
+        MemoryRange range_to(Pointer ptr);
+
+        MemoryRange range_size(std::size_t size);
     };
 
     class MemoryPatch {
@@ -132,7 +142,7 @@ namespace blook {
 
         bool restore();
     };
-    
+
 
     class MemoryRange : public Pointer {
         size_t _size;
@@ -141,6 +151,8 @@ namespace blook {
         MemoryRange(std::shared_ptr<Process> proc, void *offset, size_t size);
 
         [[nodiscard]] size_t size() const { return _size; }
+
+        bool operator==(const MemoryRange &other) const = default;
 
         template<class Scanner = memory_scanner::mb_kmp>
         inline std::optional<Pointer>
@@ -188,5 +200,7 @@ namespace blook {
                 std::function<bool(const zasm::InstructionDetail &, size_t)> find_func);
 
         std::optional<Pointer> find_xref(Pointer p);
+
+        MemoryRange(Pointer pointer, size_t size);
     };
 } // namespace blook

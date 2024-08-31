@@ -7,4 +7,6 @@
 #include "blook/Module.h"
 #include "blook/Process.h"
 #include "blook/misc.h"
+#include "blook/Disassembly.h"
+
 #endif // BLOOK_BLOOK_H
