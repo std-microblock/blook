@@ -6,7 +6,6 @@
 #include <span>
 #include <string_view>
 #include <vector>
-
 #include "memory_scanner/mb_kmp.h"
 #include "zasm/zasm.hpp"
 
@@ -20,6 +19,9 @@ namespace blook {
     class MemoryPatch;
 
     class Module;
+    namespace disasm {
+        class DisassembleIterator;
+    }
 
     class Pointer {
 
@@ -154,6 +156,8 @@ namespace blook {
 
         bool operator==(const MemoryRange &other) const = default;
 
+        [[nodiscard]] disasm::DisassembleIterator disassembly() const;
+
         template<class Scanner = memory_scanner::mb_kmp>
         inline std::optional<Pointer>
         find_one(const std::vector<uint8_t> pattern) const {
@@ -195,10 +199,7 @@ namespace blook {
         inline auto find_one(std::string_view sv) const {
             return find_one(std::vector<uint8_t>(sv.begin(), sv.end()));
         }
-
-        std::optional<Pointer> find_disassembly(
-                std::function<bool(const zasm::InstructionDetail &, size_t)> find_func);
-
+        
         std::optional<Pointer> find_xref(Pointer p);
 
         MemoryRange(Pointer pointer, size_t size);

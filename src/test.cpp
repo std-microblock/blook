@@ -49,7 +49,7 @@ void test_inline_hook() {
     MessageBoxA(nullptr, "hi", "hi", 0);
 }
 
-void test_section_view() {
+void test_xref() {
     auto process = blook::Process::self();
     auto mod = process->module().value();
     auto rdata = mod->section(".rdata").value();
@@ -69,7 +69,7 @@ void test_section_view() {
 
     auto guess_func = xref.guess_function().value().data();
     std::cout << "Target function guessed: " << std::hex << guess_func
-              << ", actual: " << &test_section_view << std::endl;
+              << ", actual: " << &test_xref << std::endl;
 }
 
 struct TestStruct {
@@ -98,7 +98,7 @@ void test_memory_offsets() {
 
 void test_disassembly_iterator() {
     using namespace blook;
-    MemoryRange range = ((Pointer)(void * )(&test_disassembly_iterator)).range_size(0x512);
+    MemoryRange range = ((Pointer) (void *) (&test_disassembly_iterator)).range_size(0x512);
     disasm::DisassembleIterator iter(
             range
     );
@@ -128,6 +128,7 @@ void test_disassembly_iterator() {
 int main() {
     try {
         test_disassembly_iterator();
+        test_xref();
     } catch (std::exception &e) {
         std::cerr << e.what();
         abort();

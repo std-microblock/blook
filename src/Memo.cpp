@@ -5,6 +5,8 @@
 #include "blook/Memo.h"
 #include "blook/Function.h"
 
+#include "blook/Disassembly.h"
+
 #define NOMINMAX
 
 #include "Windows.h"
@@ -259,61 +261,23 @@ namespace blook {
                              size_t size)
             : Pointer(std::move(proc), offset), _size(size) {}
 
-    std::optional<Pointer> MemoryRange::find_disassembly(
-            std::function<bool(const zasm::InstructionDetail &, size_t)> find_func) {
-        using namespace zasm;
-        Decoder d(MachineMode::AMD64);
-        Pointer cursor = *this;
-
-        for (; (size_t) ((cursor - this->offset).data()) < _size;) {
-            const auto r = d.decode(cursor.data(), 30, (size_t) cursor.data());
-            if (!r.hasValue()) {
-                d = Decoder(MachineMode::AMD64);
-                //      std::cerr << "blook xref warning: " << r.error().getErrorMessage()
-                //                << " at: owner_mod + " << std::hex
-                //                << ((size_t)cursor.data())
-                //                << std::endl;
-                cursor += 1;
-                continue;
-            }
-            const auto size = r->getLength();
-            if (find_func(r.value(), (size_t) cursor.data()))
-                return cursor;
-            cursor += size;
-        }
-
-        return {};
-    }
 
     std::optional<Pointer> MemoryRange::find_xref(Pointer p) {
-        return find_disassembly([=](const auto &instr, auto offset) -> bool {
-            using namespace zasm;
-
-            for (std::size_t i = 0; i < instr.getOperandCount(); i++) {
-                const auto &op = instr.getOperand(i);
-
-                if (const Mem *opMem = op.getIf<Mem>(); opMem != nullptr) {
-                    if (opMem->getBase() == x86::rip) {
-                        auto ptr = (void *) opMem->getDisplacement();
-                        if (p.data() == ptr) {
-                            return true;
-                        }
-                    }
-                }
-
-                if (const Imm *opImm = op.getIf<Imm>(); opImm != nullptr) {
-                    const auto data = opImm->value<size_t>();
-                    if (p.data() == (void *) data)
-                        return true;
-                }
-            }
-
-            return false;
+        auto disasm = this->disassembly();
+        auto res = std::ranges::find_if(disasm, [=](const auto &c) {
+            return std::ranges::contains(c.xrefs(), p);
         });
+
+        if (res == disasm.end()) return {};
+        return (*res).ptr();
     }
 
     MemoryRange::MemoryRange(Pointer pointer, size_t size) : Pointer(pointer), _size(size) {
 
+    }
+
+    disasm::DisassembleIterator MemoryRange::disassembly() const {
+        return disasm::DisassembleIterator{*this};
     }
 
 } // namespace blook
