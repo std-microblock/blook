@@ -11,9 +11,8 @@
 namespace blook {
     class Process;
 
-    class Module : std::enable_shared_from_this<Module> {
+    class Module : public std::enable_shared_from_this<Module> {
         std::shared_ptr<Process> proc;
-        std::weak_ptr<Module> p_self;
         HMODULE pModule;
 
         std::unordered_map<std::string, Function> exports_cache;

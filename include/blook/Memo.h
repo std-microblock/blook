@@ -132,6 +132,7 @@ namespace blook {
 
         bool restore();
     };
+    
 
     class MemoryRange : public Pointer {
         size_t _size;

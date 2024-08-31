@@ -15,6 +15,8 @@ add_library(blook STATIC
         src/Hook.cpp
         src/misc.cpp
         src/mb_kmp.cpp
+        src/Disassembly.cpp
+        include/blook/Disassembly.h
 )
 target_include_directories(blook PUBLIC ./include)
 target_link_libraries(blook zasm::zasm)

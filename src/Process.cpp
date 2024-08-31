@@ -116,7 +116,7 @@ namespace blook {
         return {};
     }
 
-    Process::Process(std::string name) : _memo(shared_from_this()) {
+    Process::Process(std::string name) {
 
         const auto pid = FindProcessByName(name);
         if (pid.has_value()) {
@@ -126,11 +126,11 @@ namespace blook {
         }
     }
 
-    Process::Process(HANDLE h) : _memo(shared_from_this()), h(h) {
+    Process::Process(HANDLE h) : h(h) {
         this->pid = GetProcessId(h);
     }
 
-    Process::Process(DWORD pid) : _memo(shared_from_this()) {
+    Process::Process(DWORD pid) {
         acquireDebugPrivilege();
         HANDLE hproc = OpenProcess(PROCESS_ALL_ACCESS, false, pid);
         if (!hproc)
@@ -148,7 +148,10 @@ namespace blook {
 
     bool Process::is_self() const { return GetCurrentProcessId() == pid; }
 
-    Pointer Process::memo() { return _memo; }
+    Pointer Process::memo() {
+        if (!_memo) _memo = Pointer(shared_from_this());
+        return _memo.value();
+    }
 
     void *Process::read(void *dest, void *addr, size_t size) const {
         if (ReadProcessMemory(this->h, (void *) (addr), dest, size, nullptr))

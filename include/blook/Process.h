@@ -15,7 +15,7 @@
 namespace blook {
     class Pointer;
 
-    class Process : std::enable_shared_from_this<Process> {
+    class Process : public std::enable_shared_from_this<Process> {
 #ifdef _WIN32
 
         DWORD pid;
@@ -28,7 +28,7 @@ namespace blook {
 
         explicit Process(std::string name);
 
-        Pointer _memo;
+        std::optional<Pointer> _memo{};
     protected:
         HANDLE h;
         friend Module;
