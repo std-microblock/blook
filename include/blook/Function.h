@@ -41,16 +41,14 @@ public:
   }
 
   template <typename ReturnVal, typename... Args>
-  static inline auto
-  into_function_pointer(std::function<ReturnVal(Args...)> &&fn)
-      -> ReturnVal (*)(Args...) {
+  static inline auto into_function_pointer(
+      std::function<ReturnVal(Args...)> &&fn) -> ReturnVal (*)(Args...) {
     return into_function_pointer(new std::function(std::move(fn)));
   }
 
   template <typename ReturnVal, typename... Args>
-  static inline auto
-  into_function_pointer(std::function<ReturnVal(Args...)> *fn)
-      -> ReturnVal (*)(Args...) {
+  static inline auto into_function_pointer(
+      std::function<ReturnVal(Args...)> *fn) -> ReturnVal (*)(Args...) {
     using namespace zasm;
     Program program(MachineMode::AMD64);
     initGetR11();
@@ -74,7 +72,7 @@ public:
     assert(funcAddress != -1);
     return reinterpret_cast<ReturnVal (*)(Args...)>(funcAddress);
   }
-  template <typename T = void *> T data() { return (T)ptr; }
+  template <typename T = void *> T data() const { return (T)ptr; }
   std::shared_ptr<InlineHook> inline_hook();
 };
 
