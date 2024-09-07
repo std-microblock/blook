@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_C_STANDARD 90)
 add_subdirectory(external/zasm)
 
+add_executable(blook-dll-hijack-codegen src/codegen/DllHijackCodegen.cpp)
+
 add_library(blook STATIC
         src/Process.cpp
         src/Module.cpp
