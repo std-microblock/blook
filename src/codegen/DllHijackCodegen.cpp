@@ -23,8 +23,8 @@ int main(int argc, char *args[]) {
 
     // Parse arguments
     if (argc == 1) {
-        //       std::cerr << "Usage: " << args[0] << " <target_dll_path> [locate_dll_path] [-m locate_mode]\n";
-//        return 1;
+        std::cerr << "Usage: " << args[0] << " <target_dll_path> [locate_dll_path] [-m locate_mode]\n";
+        return 1;
     }
 
     enum class ParseState {
@@ -142,8 +142,8 @@ void (*blookHijackFuncs[{}])() = {{}};)", numOfNames);
 
         code += std::format(R"(
 #pragma comment(linker, "/EXPORT:{1}=BLOOK_PLACEHOLDER_{0}")
-extern "C" void BLOOK_PLACEHOLDER_{0}() {{ return (blookHijackFuncs[{0}])(); }}
-)", i + 1, exportName);
+extern "C" void BLOOK_PLACEHOLDER_{0}() {{ return (blookHijackFuncs[{2}])(); }}
+)", i + 1, exportName, i);
     }
 
     std::cout << code;
