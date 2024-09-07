@@ -21,18 +21,14 @@ add_library(blook STATIC
         include/blook/Disassembly.h
 )
 target_include_directories(blook PUBLIC ./include)
+
 target_link_libraries(blook zasm::zasm)
-set_property(TARGET blook PROPERTY
-        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 ### Testing targets
 add_executable(blook-test src/test.cpp)
 add_library(blook-test-dll SHARED src/test.cpp)
 add_dependencies(blook-test-dll blook)
 add_dependencies(blook-test blook)
-set_property(TARGET blook-test PROPERTY
-        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-set_property(TARGET blook-test-dll PROPERTY
-        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 target_link_libraries(blook-test blook)
 target_link_libraries(blook-test-dll blook)
