@@ -46,7 +46,12 @@ namespace blook {
         [[nodiscard]] std::optional<std::shared_ptr<Module>>
         module(const std::string &name);
 
+        // Return the current (dll) module
         [[nodiscard]] std::optional<std::shared_ptr<Module>> module();
+
+        // Return the current process module
+        [[nodiscard]] std::optional<std::shared_ptr<Module>> process_module();
+
 
         [[nodiscard]] bool is_self() const;
 

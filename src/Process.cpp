@@ -126,9 +126,7 @@ namespace blook {
         }
     }
 
-    Process::Process(HANDLE h) : h(h) {
-        this->pid = GetProcessId(h);
-    }
+    Process::Process(HANDLE h) : h(h) { this->pid = GetProcessId(h); }
 
     Process::Process(DWORD pid) {
         acquireDebugPrivilege();
@@ -149,7 +147,8 @@ namespace blook {
     bool Process::is_self() const { return GetCurrentProcessId() == pid; }
 
     Pointer Process::memo() {
-        if (!_memo) _memo = Pointer(shared_from_this());
+        if (!_memo)
+            _memo = Pointer(shared_from_this());
         return _memo.value();
     }
 
@@ -162,6 +161,10 @@ namespace blook {
     std::optional<std::shared_ptr<Module>> Process::module() {
         return std::make_shared<Module>(shared_from_this(),
                                         (HMODULE) misc::get_current_module());
+    }
+
+    std::optional<std::shared_ptr<Module>> Process::process_module() {
+        return std::make_shared<Module>(shared_from_this(), GetModuleHandleW(nullptr));
     }
 
     template<class... T>
