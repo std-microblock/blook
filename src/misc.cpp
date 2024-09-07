@@ -11,7 +11,6 @@
 #include <filesystem>
 #include <string>
 
-
 namespace blook {
     void *NtCurrentPeb() {
         /*   __asm {
@@ -46,7 +45,6 @@ namespace blook {
         }
     }
 
-
     std::filesystem::path current_dll_path() {
         char path[_MAX_PATH];
         GetModuleFileNameA((HMODULE) misc::get_current_module(), path, _MAX_PATH);
@@ -71,11 +69,43 @@ namespace blook {
         return (void *) hModule;
     }
 
-    misc::ContextGuard::ContextGuard() {
-        RtlCaptureContext(&context);
+    void misc::install_optimize_dll_hijacking(void *orig_module) {
+        PBYTE pImageBase = (PBYTE) get_current_module();
+        PIMAGE_DOS_HEADER pimDH = (PIMAGE_DOS_HEADER) pImageBase;
+        if (pimDH->e_magic == IMAGE_DOS_SIGNATURE) {
+            PIMAGE_NT_HEADERS pimNH = (PIMAGE_NT_HEADERS) (pImageBase + pimDH->e_lfanew);
+            if (pimNH->Signature == IMAGE_NT_SIGNATURE) {
+                PIMAGE_EXPORT_DIRECTORY pimExD =
+                        (PIMAGE_EXPORT_DIRECTORY) (pImageBase +
+                                                   pimNH->OptionalHeader
+                                                           .DataDirectory
+                                                   [IMAGE_DIRECTORY_ENTRY_EXPORT]
+                                                           .VirtualAddress);
+                DWORD *pName = (DWORD *) (pImageBase + pimExD->AddressOfNames);
+                DWORD *pFunction = (DWORD *) (pImageBase + pimExD->AddressOfFunctions);
+                WORD *pNameOrdinals =
+                        (WORD *) (pImageBase + pimExD->AddressOfNameOrdinals);
+
+                auto module = (HINSTANCE) orig_module;
+                for (size_t i = 0; i < pimExD->NumberOfNames; ++i) {
+                    PBYTE Original =
+                            (PBYTE) GetProcAddress(module, (char *) (pImageBase + pName[i]));
+                    if (Original) {
+                        VirtualProtect(&pFunction[pNameOrdinals[i]], sizeof(DWORD),
+                                       PAGE_EXECUTE_READWRITE, nullptr);
+                        blook::Pointer(&pFunction[pNameOrdinals[i]])
+                                .reassembly([&](auto a) {
+                                    a.mov(zasm::x86::r10, zasm::Imm((size_t) orig_module));
+                                    a.jmp(zasm::x86::r10);
+                                })
+                                .patch();
+                    }
+                }
+            }
+        }
     }
 
-    misc::ContextGuard::~ContextGuard() {
-        RtlRestoreContext(&context, nullptr);
-    }
+    misc::ContextGuard::ContextGuard() { RtlCaptureContext(&context); }
+
+    misc::ContextGuard::~ContextGuard() { RtlRestoreContext(&context, nullptr); }
 } // namespace blook

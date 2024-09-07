@@ -1,6 +1,7 @@
 #pragma once
 
 #include "dirty_windows.h"
+#include <string>
 
 namespace blook {
 
@@ -8,7 +9,10 @@ namespace blook {
     public:
         static void initialize_dll_hijacking();
 
-        static void *get_current_module();
+        static void install_optimize_dll_hijacking(void *orig_module);
+
+        static void *
+        get_current_module();
 
         class ContextGuard {
         public:
@@ -19,6 +23,5 @@ namespace blook {
             _CONTEXT context;
         };
     };
-
 
 } // namespace blook
