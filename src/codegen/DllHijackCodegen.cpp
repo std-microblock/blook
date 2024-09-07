@@ -75,7 +75,7 @@ int main(int argc, char *args[]) {
 #include <cstdlib>
 #include "Windows.h"
 
-    )";
+)";
 
 
     HMODULE lib = LoadLibraryExA(config.target_dll_path.data(), nullptr, DONT_RESOLVE_DLL_REFERENCES);
