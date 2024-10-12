@@ -2,6 +2,8 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/build/_deps/zydis-src" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/build/_deps/zydis-src/dependencies/zycore" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/external/zasm" vcs="Git" />
   </component>
 </project>
