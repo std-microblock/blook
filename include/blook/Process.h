@@ -8,62 +8,64 @@
 #include <iostream>
 #include <optional>
 #include <span>
-#include <stdexcept>
+#include <expected>
 #include <string>
 #include <vector>
 
 namespace blook {
-class Pointer;
+    class Pointer;
 
-class Process : public std::enable_shared_from_this<Process> {
+    class Process : public std::enable_shared_from_this<Process> {
 #ifdef _WIN32
 
-  DWORD pid;
+        DWORD pid;
 
-  explicit Process(HANDLE h);
+        explicit Process(HANDLE h);
 
-  explicit Process(DWORD pid);
+        explicit Process(DWORD pid);
 
 #endif
 
-  std::optional<Pointer> _memo{};
+        std::optional<Pointer> _memo{};
 
-  explicit Process(std::string name);
+        explicit Process(std::string name);
 
-protected:
-  HANDLE h = nullptr;
-  friend Module;
-  friend Pointer;
+    protected:
+        HANDLE h = nullptr;
+        friend Module;
+        friend Pointer;
 
-public:
-  CLASS_MOVE_ONLY(Process)
+    public:
+        CLASS_MOVE_ONLY(Process)
 
-  [[nodiscard]] std::optional<std::vector<std::uint8_t>>
-  read(void *addr, size_t size) const;
+        [[nodiscard]] std::optional<std::vector<std::uint8_t>>
+        read(void *addr, size_t size) const;
 
-  void *read(void *dest, void *addr, size_t size) const;
+        void *read(void *dest, void *addr, size_t size) const;
 
-  [[nodiscard]] std::optional<std::shared_ptr<Module>>
-  module(const std::string &name);
+        std::expected<void, std::string> write(void *addr, std::span<uint8_t>) const;
 
-  std::map<std::string, std::shared_ptr<Module>> modules();
+        [[nodiscard]] std::optional<std::shared_ptr<Module>>
+        module(const std::string &name);
 
-  // Return the current (dll) module
-  [[nodiscard]] std::optional<std::shared_ptr<Module>> module();
+        std::map<std::string, std::shared_ptr<Module>> modules();
 
-  // Return the current process module
-  [[nodiscard]] std::optional<std::shared_ptr<Module>> process_module();
+        // Return the current (dll) module
+        [[nodiscard]] std::optional<std::shared_ptr<Module>> module();
 
-  [[nodiscard]] bool is_self() const;
+        // Return the current process module
+        [[nodiscard]] std::optional<std::shared_ptr<Module>> process_module();
 
-  static std::shared_ptr<Process> self();
+        [[nodiscard]] bool is_self() const;
 
-  Pointer memo();
+        static std::shared_ptr<Process> self();
 
-  template <class... T>
-  static std::shared_ptr<Process> Process::attach(T &&...argv) {
-    return std::shared_ptr<Process>(new Process(argv...));
-  }
-};
+        Pointer memo();
+
+        template<class... T>
+        static std::shared_ptr<Process> Process::attach(T &&...argv) {
+            return std::shared_ptr<Process>(new Process(argv...));
+        }
+    };
 
 } // namespace blook
