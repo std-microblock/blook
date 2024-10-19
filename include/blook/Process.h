@@ -26,12 +26,12 @@ class Process : public std::enable_shared_from_this<Process> {
 
 #endif
 
-  explicit Process(std::string name);
-
   std::optional<Pointer> _memo{};
 
+  explicit Process(std::string name);
+
 protected:
-  HANDLE h;
+  HANDLE h = nullptr;
   friend Module;
   friend Pointer;
 
@@ -60,7 +60,10 @@ public:
 
   Pointer memo();
 
-  template <class... T> static std::shared_ptr<Process> attach(T &&...argv);
+  template <class... T>
+  static std::shared_ptr<Process> Process::attach(T &&...argv) {
+    return std::shared_ptr<Process>(new Process(argv...));
+  }
 };
 
 } // namespace blook

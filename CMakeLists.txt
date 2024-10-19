@@ -26,6 +26,7 @@ add_library(blook STATIC
         src/Disassembly.cpp
         include/blook/Disassembly.h
         include/blook/Concepts.h
+        include/blook/Concepts.h
 )
 target_include_directories(blook PUBLIC ./include)
 

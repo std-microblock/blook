@@ -1,12 +1,15 @@
 #pragma once
 
+#include "Concepts.h"
 #include "memory_scanner/mb_kmp.h"
 #include "zasm/zasm.hpp"
+#include <deque>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <span>
 #include <string_view>
+#include <system_error>
 #include <vector>
 
 namespace blook {
@@ -20,14 +23,16 @@ class MemoryPatch;
 
 class Module;
 namespace disasm {
-class DisassembleIterator;
-}
+template <typename Range> class DisassembleRange;
+
+using DisassembleIterator = DisassembleRange<std::span<uint8_t>>;
+} // namespace disasm
 
 class Pointer {
 
 protected:
   size_t offset = 0;
-  std::shared_ptr<Process> proc;
+  std::shared_ptr<Process> proc = nullptr;
   friend MemoryPatch;
 
 public:
@@ -56,21 +61,35 @@ public:
 
   void *malloc(size_t size, MemoryProtection protection = MemoryProtection::rw);
 
-  std::vector<uint8_t> read(void *ptr, size_t size);
+  std::vector<uint8_t> read(void *ptr, size_t size) const;
 
   std::span<uint8_t> read_leaked(void *ptr, size_t size);
 
   template <typename Struct>
-  inline std::optional<Struct *> read(void *ptr = nullptr) {
+  inline std::optional<Struct *> read_leaked(void *ptr = nullptr) {
     const auto val = read_leaked(ptr, sizeof(Struct));
     return reinterpret_cast<Struct *>(val.data());
   }
 
-  template <typename Struct> inline std::optional<Struct> read(size_t ptr) {
-    return read<Struct>((void *)ptr);
+  template <typename Struct>
+  [[nodiscard]] inline Struct read(size_t ptr = 0) const {
+    auto data = try_read((void *)ptr, sizeof(Struct));
+    if (!data.has_value()) {
+      throw std::runtime_error("Failed to read memory");
+    }
+    return *reinterpret_cast<Struct *>(data.value().data());
   }
 
-  std::optional<std::vector<uint8_t>> try_read(void *ptr, size_t size);
+  template <typename Struct>
+  [[nodiscard]] inline std::optional<Struct> try_read(size_t ptr = 0) const {
+    auto data = try_read((void *)ptr, sizeof(Struct));
+    if (!data.has_value()) {
+      return {};
+    }
+    return *reinterpret_cast<Struct *>(data.value().data());
+  }
+
+  std::optional<std::vector<uint8_t>> try_read(void *ptr, size_t size) const;
 
   explicit Pointer(std::shared_ptr<Process> proc);
 
@@ -80,6 +99,8 @@ public:
 
   // Construct a pointer within current process.
   Pointer(void *offset);
+
+  Pointer() = default;
 
   operator size_t() const { return (size_t)this->offset; }
 
@@ -143,16 +164,98 @@ public:
 };
 
 class MemoryRange : public Pointer {
-  size_t _size;
+  size_t _size = 0;
 
 public:
   MemoryRange(std::shared_ptr<Process> proc, void *offset, size_t size);
 
+  MemoryRange() = default;
+
+  MemoryRange(const MemoryRange &other) = default;
+
+  MemoryRange &operator=(const MemoryRange &other) = default;
+
   [[nodiscard]] size_t size() const { return _size; }
+
+  template <size_t bufSize> struct MemoryIteratorBuffered {
+    Pointer ptr = nullptr;
+    size_t size = 1;
+
+    std::deque<uint8_t> buffer;
+
+    MemoryIteratorBuffered() = default;
+
+    MemoryIteratorBuffered(const MemoryIteratorBuffered &) = default;
+
+    MemoryIteratorBuffered(MemoryIteratorBuffered &&) = default;
+
+    MemoryIteratorBuffered &operator=(const MemoryIteratorBuffered &) = default;
+
+    MemoryIteratorBuffered &operator=(MemoryIteratorBuffered &&) = default;
+
+    MemoryIteratorBuffered(Pointer ptr, size_t size) : ptr(ptr), size(size) {}
+
+    MemoryIteratorBuffered &operator+=(size_t t) {
+      ptr += size * t;
+      return *this;
+    }
+
+    MemoryIteratorBuffered operator+(size_t t) {
+      return {ptr + size * t, size};
+    }
+
+    MemoryIteratorBuffered &operator-=(size_t t) {
+      ptr -= size * t;
+      return *this;
+    }
+
+    MemoryIteratorBuffered operator-(size_t t) {
+      return {ptr - size * t, size};
+    }
+
+    MemoryIteratorBuffered &operator++() {
+      ptr += size;
+      return *this;
+    }
+
+    MemoryIteratorBuffered operator++(int) {
+      auto tmp = *this;
+      ++(*this);
+      return tmp;
+    }
+
+    bool operator==(const MemoryIteratorBuffered &other) const {
+      return ptr == other.ptr;
+    }
+
+    bool operator!=(const MemoryIteratorBuffered &other) const {
+      return !(*this == other);
+    }
+
+    // TODO: buffer the read operation to reduce syscall overhead
+    uint8_t operator*() { return ptr.read<uint8_t>(0); }
+
+    using value_type = uint8_t;
+    using difference_type = std::ptrdiff_t;
+    using pointer = uint8_t *;
+    using reference = uint8_t &;
+    using iterator_category = std::input_iterator_tag;
+  };
+
+  using MemoryIterator = MemoryIteratorBuffered<1024>;
+
+  using iterator = MemoryIterator;
+  using const_iterator = MemoryIterator;
 
   bool operator==(const MemoryRange &other) const = default;
 
-  [[nodiscard]] disasm::DisassembleIterator disassembly() const;
+  [[nodiscard]] MemoryIterator begin() const {
+    return {*static_cast<const Pointer *>(this), 1};
+  }
+
+  [[nodiscard]] MemoryIterator end() const {
+    return {(*static_cast<const Pointer *>(this)).add(_size), 1};
+  }
 
   template <class Scanner = memory_scanner::mb_kmp>
   inline std::optional<Pointer>
@@ -201,5 +304,13 @@ public:
   MemoryRange(Pointer pointer, size_t size);
 
   int32_t crc32() const;
+
+  [[nodiscard]] disasm::DisassembleRange<MemoryRange> disassembly() const;
 };
+
+static_assert(std::sentinel_for<decltype(std::declval<MemoryRange>().begin()),
+                                decltype(std::declval<MemoryRange>().end())>);
+static_assert(std::ranges::range<MemoryRange>);
+
+static_assert(std::is_constructible_v<MemoryRange>);
 } // namespace blook
