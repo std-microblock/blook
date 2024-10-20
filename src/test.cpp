@@ -125,7 +125,7 @@ void test_disassembly_iterator() {
   std::cout << "Usage found at: " << (*res).ptr();
 }
 
-void test_disassembly_other_proc() {
+void test_dwm_big_round_corner() {
   using namespace blook;
   auto proc = Process::attach("dwm.exe");
 
@@ -138,7 +138,6 @@ void test_disassembly_other_proc() {
   for (const auto &data : iter) {
     cnt += data->getLength();
     auto off = data.ptr() - mod->base();
-    // look for movss xmm6, [where points to .rdata and is 0x40800000]
     if (data->getMnemonic() == zasm::x86::Mnemonic::Movss &&
         data->getOperands()[0].holds<zasm::Reg>() &&
         data->getOperands()[1].holds<zasm::Mem>()) {
@@ -147,21 +146,15 @@ void test_disassembly_other_proc() {
       if (mem.getBase() == zasm::x86::rip) {
         auto val = proc->memo() + mem.getDisplacement();
         auto data2 = val.try_read<uint32_t>();
+        constexpr const auto smallVar = 0x07210721;
 
-        if (data2 && data2 == 0x40800000) {
+        if (data2 &&
+            (data2 == 0x40800000 || data2 == 0x41000000 ||
+             data2 == 0x41f00000 || data2 == 0x40800000 || data2 == smallVar)) {
           std::cout << "Found target instruction at: " << data.ptr()
                     << std::endl;
-          std::cout << "Writing 30.f to target addr" << std::endl;
-          if (auto res = val.write(30.f); !res) {
-            std::cerr << res.error() << std::endl;
-          }
-
-          break;
-        } else if (data2 && (data2 == 0x41000000 || data2 == 0x41f00000)) {
-          std::cout << "Found target instruction 2 at: " << data.ptr()
-                    << std::endl;
-          std::cout << "Writing 30.f to target addr" << std::endl;
-          if (auto res = val.write(30.f); !res) {
+          std::cout << "Writing new val to target addr" << std::endl;
+          if (auto res = val.write(16.f); !res) {
             std::cerr << res.error() << std::endl;
           }
         }
@@ -176,7 +169,7 @@ int main() {
   //    try {
   //    test_disassembly_iterator();
   //        test_xref();
-  test_disassembly_other_proc();
+  test_dwm_big_round_corner();
   //    } catch (std::exception &e) {
   //        std::cerr << e.what();
   //        abort();
