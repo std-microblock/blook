@@ -130,7 +130,7 @@ void test_disassembly_other_proc() {
   auto proc = Process::attach("dwm.exe");
 
   auto mod = proc->modules()["udwm.dll"];
-  auto text = mod->base().add(0x2d000).range_size(0x50000);
+  auto text = mod->section(".text").value();
 
   auto iter = text.disassembly();
 
@@ -157,7 +157,7 @@ void test_disassembly_other_proc() {
           }
 
           break;
-        } else if (data2 && data2 == 0x41000000) {
+        } else if (data2 && (data2 == 0x41000000 || data2 == 0x41f00000)) {
           std::cout << "Found target instruction 2 at: " << data.ptr()
                     << std::endl;
           std::cout << "Writing 30.f to target addr" << std::endl;
@@ -168,11 +168,13 @@ void test_disassembly_other_proc() {
       }
     }
   }
+
+  std::cout << "Total bytes disassembled: " << cnt << std::endl;
 }
 
 int main() {
   //    try {
-  //        test_disassembly_iterator();
+  //    test_disassembly_iterator();
   //        test_xref();
   test_disassembly_other_proc();
   //    } catch (std::exception &e) {

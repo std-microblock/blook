@@ -29,9 +29,9 @@ class Process : public std::enable_shared_from_this<Process> {
   struct Allocator {
     explicit Allocator(std::shared_ptr<Process> proc);
 
-    void *allocate(size_t size, void *nearAddr = nullptr);
+    std::optional<Pointer> allocate(size_t size, void *nearAddr = nullptr);
 
-    void deallocate(void *addr);
+    void deallocate(Pointer addr);
 
   private:
     struct AllocatedPageData {
