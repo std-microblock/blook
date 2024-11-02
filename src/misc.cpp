@@ -87,10 +87,15 @@ namespace blook {
                 for (size_t i = 0; i < pimExD->NumberOfNames; ++i) {
                     void *orig =
                             (void *) GetProcAddress(module, (char *) (pImageBase + pName[i]));
-                    void *fake = (void *) GetProcAddress((HMODULE) pImageBase, (char *) (pImageBase + pName[i]));
+                    void *fake = (void *) GetProcAddress((HMODULE) pImageBase,
+                                                         (char *) (pImageBase + pName[i]));
                     if (orig) {
-                        VirtualProtect(fake, 16,
-                                       PAGE_EXECUTE_READWRITE, nullptr);
+                        if (fake == orig) {
+                            throw std::runtime_error(
+                                    "The origin module cannot be the same as the fake module. This "
+                                    "will cause a deadloop.");
+                        }
+                        VirtualProtect(fake, 16, PAGE_EXECUTE_READWRITE, nullptr);
                         blook::Pointer(fake)
                                 .reassembly([&](auto a) {
                                     a.mov(zasm::x86::r10, zasm::Imm((size_t) orig));
@@ -101,6 +106,15 @@ namespace blook {
                 }
             }
         }
+    }
+
+    void *misc::load_system_module(std::string_view module_name) {
+        char system_dir_path[MAX_PATH];
+        GetSystemDirectoryA(system_dir_path, MAX_PATH);
+        strcat_s(system_dir_path, "\\{}");
+        HMODULE lib = LoadLibraryA(system_dir_path);
+
+        return lib;
     }
 
     misc::ContextGuard::ContextGuard() { RtlCaptureContext(&context); }
