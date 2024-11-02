@@ -5,24 +5,25 @@
 
 namespace blook {
 
-class misc {
-public:
-  static void initialize_dll_hijacking();
+    namespace misc {
+        void initialize_dll_hijacking();
 
-  static void install_optimize_dll_hijacking(void *orig_module);
+        void install_optimize_dll_hijacking(void *orig_module);
 
-  static void *load_system_module(std::string_view module_name);
+        void install_optimize_dll_hijacking(std::string_view orig_module);
 
-  static void *get_current_module();
+        void *load_system_module(std::string_view module_name);
 
-  class ContextGuard {
-  public:
-    ContextGuard();
+        void *get_current_module();
 
-    ~ContextGuard();
+        class ContextGuard {
+        public:
+            ContextGuard();
 
-    _CONTEXT context;
-  };
-};
+            ~ContextGuard();
+
+            _CONTEXT context;
+        };
+    };
 
 } // namespace blook
