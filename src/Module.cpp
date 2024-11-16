@@ -96,7 +96,7 @@ namespace blook {
                 std::string exportName = (char *) ((BYTE *) lib + names[i]);
 
                 auto addr = GetProcAddress(lib, exportName.c_str());
-                exports_cache.insert({exportName, Function(proc, addr, exportName)});
+                exports_cache.insert({exportName, Function(proc, (void *) addr, exportName)});
             }
         }
         return &exports_cache;

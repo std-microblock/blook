@@ -82,7 +82,7 @@ public:
   Allocator allocator();
 
   template <class... T>
-  static std::shared_ptr<Process> Process::attach(T &&...argv) {
+  static std::shared_ptr<Process> attach(T &&...argv) {
     return std::shared_ptr<Process>(new Process(argv...));
   }
 };

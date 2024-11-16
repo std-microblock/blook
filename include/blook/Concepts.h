@@ -1,6 +1,7 @@
 #pragma once
 
 #include <concepts>
+#include <cstdint>
 
 namespace blook {
     template<typename ByteIterateAble, typename Iter = ByteIterateAble::iterator>

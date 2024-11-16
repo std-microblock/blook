@@ -3,6 +3,7 @@
 
 #include "Windows.h"
 #include <format>
+#include <algorithm>
 
 void test_wrap_function() {
     int evilNum = 1919810;
@@ -19,16 +20,16 @@ void test_wrap_function() {
     for (int a = 0; a < num; a++)
         non_wrapped(114, 514);
     const auto x = clock.now() - s2;
-    std::cout << std::format("non-wrapped version took {} for {} calls\n", x,
+    std::cout << std::format("non-wrapped version took {} for {} calls\n", x.count(),
                              num);
 
     const auto s1 = clock.now();
     for (int a = 0; a < num; a++)
         wrapped(114, 514);
     const auto b = clock.now() - s1;
-    std::cout << std::format("wrapped version took {} for {} calls\n", b, num);
+    std::cout << std::format("wrapped version took {} for {} calls\n", b.count(), num);
 
-    std::cout << std::format("delta: {}, radio: {}\n", b - x,
+    std::cout << std::format("delta: {}, radio: {}\n", (b - x).count(),
                              b.count() / (double) x.count());
 }
 

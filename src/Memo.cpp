@@ -13,6 +13,7 @@
 #include "blook/Process.h"
 #include "zasm/formatter/formatter.hpp"
 #include <cstdint>
+#include <algorithm>
 #include <utility>
 
 #include <iostream>

@@ -49,8 +49,7 @@ namespace blook {
         };
 
         template<typename Range>
-        class DisassembleRange
-                : public std::iterator<std::input_iterator_tag, InstructionCtx> {
+        class DisassembleRange {
             static constexpr int BufferSize = 30;
             Pointer address = 0;
             Pointer address_begin = 0;
@@ -62,9 +61,15 @@ namespace blook {
             bool over = false;
             std::vector<uint8_t> buffer{BufferSize};
 
+
         public:
             using iterator = DisassembleRange<Range>;
             using const_iterator = iterator;
+            using iterator_tag = std::input_iterator_tag;
+            using value_type = InstructionCtx;
+            using difference_type = std::ptrdiff_t;
+            using pointer = value_type *;
+            using reference = value_type &;
 
             DisassembleRange() = default;
 
