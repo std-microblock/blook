@@ -228,7 +228,7 @@ namespace blook {
             }
 
             inline MemoryIteratorBuffered operator+(size_t t) {
-                return {ptr + t * step, std::max(size - t * step, 0ull)};
+                return {ptr + t * step, std::max(size - t * step, (size_t) 0)};
             }
 
             inline MemoryIteratorBuffered &operator++() {

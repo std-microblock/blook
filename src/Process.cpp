@@ -205,9 +205,10 @@ namespace blook {
         return modules;
     }
 
+
     std::expected<void, std::string> Process::write(void *addr,
                                                     std::span<uint8_t> data) const {
-        size_t written;
+        SIZE_T written;
         DWORD old_protect;
         if (!VirtualProtectEx(this->h, addr, data.size(), PAGE_EXECUTE_READWRITE,
                               &old_protect))

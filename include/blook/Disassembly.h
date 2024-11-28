@@ -135,7 +135,7 @@ namespace blook {
                 }
 
                 // Copy the buffer
-                auto maxSize = 30ull; // (size_t)std::distance(ptr, range.end());
+                auto maxSize = (size_t) 30; // (size_t)std::distance(ptr, range.end());
                 buffer.resize(std::min(maxSize, (size_t) BufferSize));
                 std::copy(ptr, ptr + buffer.size(), buffer.begin());
                 const auto r = d.decode(buffer.data(), BufferSize, address);
