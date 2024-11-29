@@ -2,7 +2,7 @@
 
 #include "Module.h"
 
-#include "dirty_windows.h"
+#include "wintypes.h"
 
 #include "utils.h"
 #include <cstdint>

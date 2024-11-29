@@ -6,7 +6,7 @@
 #include <string>
 #include <unordered_map>
 
-#include "dirty_windows.h"
+#include "wintypes.h"
 
 #include "Function.h"
 
