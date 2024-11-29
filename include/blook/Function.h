@@ -38,8 +38,6 @@ class Function {
       }
     }
 
-    std::cout << "Function pointer: " << ptr << std::endl;
-
     const auto fn = reinterpret_cast<std::function<ReturnVal(Args...)> *>(ptr);
     return (*fn)(args...);
   }

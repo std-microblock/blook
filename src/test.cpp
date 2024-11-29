@@ -1,15 +1,17 @@
-
+#include "blook/Hook.h"
+#include "blook/blook.h"
 
 #include <algorithm>
 #include <format>
+#include <memory>
 #include <ostream>
 #include <print>
 
-#include "blook/blook.h"
-#include <winuser.h>
 #include "Windows.h"
+#include <winuser.h>
 
 void test_wrap_function() {
+  std::println("Testing function wrapping");
   const auto wrappedPlain = blook::Function::into_function_pointer(
       +[](int64_t a, int64_t b) { return a + b; });
 
@@ -44,24 +46,30 @@ void test_wrap_function() {
                            b.count() / (double)x.count());
 }
 
+static std::shared_ptr<blook::InlineHook> hookMsgBoxA;
+int __stdcall hookMsgBoxAFunc(size_t a, char *text, char *title, size_t b) {
+  std::cout << "Hooked MessageBoxA called" << std::endl;
+  return hookMsgBoxA->trampoline_t<int __stdcall(size_t, char *, char *, size_t)>()(
+      a, (char *)"hooked MessageBoxA", text, b);
+}
+
 void test_inline_hook() {
   auto process = blook::Process::self();
-  static auto hook = process->module("USER32.DLL")
+  hookMsgBoxA = process->module("USER32.DLL")
                          .value()
                          ->exports("MessageBoxA")
                          ->inline_hook();
-  hook->install(+[](size_t a, char *text, char *title, size_t b) -> int {
-    std::cout << "Hooked MessageBoxA called" << std::endl;
-    return hook->trampoline_t<int __stdcall(size_t, char *, char *, size_t)>()(
-        a, (char *)"hooked MessageBoxA", text, b);
-  });
+
+  hookMsgBoxA->install((void*)hookMsgBoxAFunc);
   std::println("Hooked MessageBoxA");
 
   MessageBoxA(nullptr, "hi", "hi", 0);
   std::println("Hooked MessageBoxA return");
-  hook->uninstall();
+  hookMsgBoxA->uninstall();
   std::println("Unhooked MessageBoxA");
   MessageBoxA(nullptr, "hi", "hi", 0);
+  std::println("Unhooked MessageBoxA return");
+  return;
 }
 
 void test_xref() {
