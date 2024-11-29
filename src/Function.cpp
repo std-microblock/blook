@@ -54,19 +54,3 @@ BLOOK_TEXT_SECTION uint8_t _getCaller[] = {
 #endif
 using getCaller_t = void *();
 auto getCaller = (getCaller_t *) _getCaller;
-
-void initGetR11() {
-    static bool initialized = false;
-    if (initialized)
-        return;
-    initialized = true;
-    auto self = blook::Process::self();
-    self->memo()
-            .add((size_t) &getR11)
-            .reassembly([](auto a) {
-                a.mov(zasm::x86::rax, zasm::x86::r11);
-                a.mov(zasm::x86::rax, zasm::x86::r11);
-                a.ret();
-            })
-            .patch();
-}

@@ -1,4 +1,5 @@
 #pragma once
+#include "blook/utils.h"
 #include "dirty_windows.h"
 
 #include <format>
@@ -7,11 +8,9 @@
 #include <memory>
 
 #include "Memo.h"
+#include "misc.h"
 #include "utils.h"
 #include "zasm/zasm.hpp"
-
-int64_t getR11();
-void initGetR11();
 
 namespace blook {
 class Module;
@@ -24,8 +23,12 @@ class Function {
 
   template <typename ReturnVal, typename... Args>
   static ReturnVal function_fp_wrapper(Args... args) {
-    const auto r11 = getR11();
-    const auto fn = reinterpret_cast<std::function<ReturnVal(Args...)> *>(r11);
+#ifdef __x86_64__
+    const auto ptr = utils::getR11();
+#elif defined(__i386__)
+    const auto ptr = (void *)utils::getECX();
+#endif
+    const auto fn = reinterpret_cast<std::function<ReturnVal(Args...)> *>(ptr);
     return (*fn)(args...);
   }
 
@@ -41,23 +44,34 @@ public:
   }
 
   template <typename ReturnVal, typename... Args>
-  static inline auto into_function_pointer(
-      std::function<ReturnVal(Args...)> &&fn) -> ReturnVal (*)(Args...) {
+  static inline auto
+  into_function_pointer(std::function<ReturnVal(Args...)> &&fn)
+      -> ReturnVal (*)(Args...) {
     return into_function_pointer(new std::function(std::move(fn)));
   }
 
   template <typename ReturnVal, typename... Args>
-  static inline auto into_function_pointer(
-      std::function<ReturnVal(Args...)> *fn) -> ReturnVal (*)(Args...) {
+  static inline auto
+  into_function_pointer(std::function<ReturnVal(Args...)> *fn)
+      -> ReturnVal (*)(Args...) {
     using namespace zasm;
-    Program program(MachineMode::AMD64);
-    initGetR11();
+
+    Program program(utils::getCompileMachineMode());
+
     x86::Assembler a(program);
     const auto label = a.createLabel();
     a.bind(label);
-    a.mov(x86::r11, Imm((size_t)fn));
-    a.mov(x86::r12, Imm((int64_t)&function_fp_wrapper<ReturnVal, Args...>));
-    a.jmp(x86::r12);
+
+    if constexpr (utils::getCompileArchitecture() ==
+                  utils::Architecture::x86_64) {
+      a.mov(x86::r11, Imm((size_t)fn));
+      a.mov(x86::r12, Imm((int64_t)&function_fp_wrapper<ReturnVal, Args...>));
+      a.jmp(x86::r12);
+    } else if constexpr (utils::getCompileArchitecture() ==
+                         utils::Architecture::x86_32) {
+      a.mov(x86::ecx, Imm((size_t)fn));
+      a.jmp(Imm((int32_t)&function_fp_wrapper<ReturnVal, Args...>));
+    }
 
     Serializer serializer;
     void *pCodePage = Pointer::malloc_rwx(utils::estimateCodeSize(program));

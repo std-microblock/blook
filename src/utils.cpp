@@ -1,7 +1,10 @@
 #include "blook/utils.h"
+#include "blook/misc.h"
 #include <stdexcept>
 namespace blook {
-std::size_t utils::estimateCodeSize(const zasm::Program &program) {
+
+namespace utils {
+std::size_t estimateCodeSize(const zasm::Program &program) {
   std::size_t size = 0;
   for (auto *node = program.getHead(); node != nullptr;
        node = node->getNext()) {
@@ -26,4 +29,25 @@ std::size_t utils::estimateCodeSize(const zasm::Program &program) {
   }
   return size;
 }
+
+#ifdef __x86_64__
+BLOOK_TEXT_SECTION uint8_t _getR11[] = {
+    // mov rax, r11
+    0x4C, 0x89, 0xD8,
+    // ret
+    0xC3};
+
+getreg_fn_t getR11 = (getreg_fn_t)_getR11;
+
+#elif defined(__i386__)
+BLOOK_TEXT_SECTION uint8_t _getECX[] = {
+    // mov eax, ecx
+    0x89, 0xC8,
+    // ret
+    0xC3};
+
+getreg_fn_t getECX = (getreg_fn_t)_getECX;
+#endif
+
+} // namespace utils
 } // namespace blook
