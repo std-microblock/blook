@@ -6,6 +6,7 @@
 #include <format>
 #include <ostream>
 #include <print>
+#include <winuser.h>
 
 void test_wrap_function() {
   const auto wrappedPlain = blook::Function::into_function_pointer(
@@ -45,9 +46,9 @@ void test_wrap_function() {
 void test_inline_hook() {
   auto process = blook::Process::self();
   static auto hook = process->module("USER32.DLL")
-                  .value()
-                  ->exports("MessageBoxA")
-                  ->inline_hook();
+                         .value()
+                         ->exports("MessageBoxA")
+                         ->inline_hook();
   hook->install(+[](size_t a, char *text, char *title, size_t b) -> size_t {
     std::cout << "Hooked MessageBoxA called" << std::endl;
     return hook->trampoline_t<size_t(size_t, char *, char *, size_t)>()(
@@ -203,11 +204,23 @@ void test_qq_iter() {
 }
 
 int main() {
-  std::println("Hello, World!");
-  try {
 
-  test_inline_hook();
-  test_wrap_function();
+//   MessageBoxA(nullptr, "hi", "hi", 0);
+
+  try {
+      std::println("Hello, World!");
+
+  const auto wrappedPlain =
+      blook::Function::into_function_pointer(+[](int64_t a, int64_t b) {
+        a++;
+        MessageBoxA(nullptr, "hi", "hi", 0);
+        return (+[](int a, int b) { return a + b; })(a, b);
+      });
+  wrappedPlain(1, 2);
+  std::println("Wrapped plain function");
+
+    test_inline_hook();
+    test_wrap_function();
   } catch (std::exception &e) {
     std::cerr << e.what();
     abort();

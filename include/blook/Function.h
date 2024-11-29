@@ -14,6 +14,8 @@
 #include "utils.h"
 #include "zasm/base/memory.hpp"
 #include "zasm/core/bitsize.hpp"
+#include "zasm/x86/memory.hpp"
+#include "zasm/x86/register.hpp"
 #include "zasm/zasm.hpp"
 
 namespace blook {
@@ -28,9 +30,9 @@ class Function {
     auto stack = (size_t *)utils::getStackPointer();
 
     void *ptr = nullptr;
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i > -100; i--) {
       if (stack[i] == STACK_MAGIC_NUMBER) {
-        
+
         ptr = (void *)(stack[i + 1]);
         break;
       }
@@ -75,22 +77,27 @@ public:
     const auto label = a.createLabel();
     a.bind(label);
 
+    auto fillAddress = [&a](auto reg, size_t offset, size_t value) {
+      a.mov(x86::word_ptr(reg, offset + 0), Imm16(value & 0xFFFF));
+      a.mov(x86::word_ptr(reg, offset + 2), Imm16((value >> 16) & 0xFFFF));
+
+      if constexpr (utils::compileArchitecture() ==
+                    utils::Architecture::x86_64) {
+        a.mov(x86::word_ptr(reg, offset + 4), Imm16((value >> 32) & 0xFFFF));
+        a.mov(x86::word_ptr(reg, offset + 6), Imm16((value >> 48) & 0xFFFF));
+      }
+    };
+
     if constexpr (utils::compileArchitecture() == utils::Architecture::x86_64) {
-      a.mov(x86::r11, Imm((size_t)fn));
-      a.push(x86::r11);
-      a.push(Imm(STACK_MAGIC_NUMBER));
+      fillAddress(x86::rsp, -8 * 25, (size_t)fn);
+      fillAddress(x86::rsp, -8 * 26, STACK_MAGIC_NUMBER);
       a.mov(x86::rax, Imm((int64_t)&function_fp_wrapper<ReturnVal, Args...>));
-      a.call(x86::rax);
-      a.add(x86::rsp, Imm(16));
-      a.ret();
+      a.jmp(x86::rax);
     } else if constexpr (utils::compileArchitecture() ==
                          utils::Architecture::x86_32) {
-      a.push(Imm((int32_t)fn));
-      a.push(Imm(STACK_MAGIC_NUMBER));
-      a.mov(x86::eax, Imm((size_t)&function_fp_wrapper<ReturnVal, Args...>));
-      a.call(x86::eax);
-      a.add(x86::esp, Imm(8));
-      a.ret();
+      fillAddress(x86::esp, -4 * 25, (size_t)fn);
+      fillAddress(x86::esp, -4 * 26, STACK_MAGIC_NUMBER);
+      a.jmp(Imm((int32_t)&function_fp_wrapper<ReturnVal, Args...>));
     }
 
     Serializer serializer;
