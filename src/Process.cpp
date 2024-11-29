@@ -4,8 +4,9 @@
 #include "blook/Process.h"
 #include "blook/misc.h"
 
-#include "psapi.h"
 #include "windows.h"
+
+#include "psapi.h"
 #include <TlHelp32.h>
 
 #include <expected>
