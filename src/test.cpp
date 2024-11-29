@@ -49,9 +49,9 @@ void test_inline_hook() {
                          .value()
                          ->exports("MessageBoxA")
                          ->inline_hook();
-  hook->install(+[](size_t a, char *text, char *title, size_t b) -> size_t {
+  hook->install(+[](size_t a, char *text, char *title, size_t b) -> int {
     std::cout << "Hooked MessageBoxA called" << std::endl;
-    return hook->trampoline_t<size_t(size_t, char *, char *, size_t)>()(
+    return hook->trampoline_t<int __stdcall(size_t, char *, char *, size_t)>()(
         a, (char *)"hooked MessageBoxA", text, b);
   });
   std::println("Hooked MessageBoxA");
@@ -205,19 +205,10 @@ void test_qq_iter() {
 
 int main() {
 
-//   MessageBoxA(nullptr, "hi", "hi", 0);
+  //   MessageBoxA(nullptr, "hi", "hi", 0);
 
   try {
-      std::println("Hello, World!");
-
-  const auto wrappedPlain =
-      blook::Function::into_function_pointer(+[](int64_t a, int64_t b) {
-        a++;
-        MessageBoxA(nullptr, "hi", "hi", 0);
-        return (+[](int a, int b) { return a + b; })(a, b);
-      });
-  wrappedPlain(1, 2);
-  std::println("Wrapped plain function");
+    std::println("Hello, World!");
 
     test_inline_hook();
     test_wrap_function();

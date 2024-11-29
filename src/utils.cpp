@@ -1,5 +1,6 @@
 #include "blook/utils.h"
 #include "blook/misc.h"
+#include <format>
 #include <stdexcept>
 namespace blook {
 
@@ -16,7 +17,11 @@ std::size_t estimateCodeSize(const zasm::Program &program) {
       if (instrInfo.hasValue()) {
         size += instrInfo->getLength();
       } else {
-        throw std::runtime_error(instrInfo.error().getErrorMessage());
+        throw std::runtime_error(
+            std::format("Failed to estimate code size, error: {} {}",
+                        instrInfo.error().getErrorName(),
+                        instrInfo.error().getErrorMessage()
+                        ));
       }
     } else if (auto *nodeEmbeddedLabel = node->getIf<zasm::EmbeddedLabel>();
                nodeEmbeddedLabel != nullptr) {
@@ -62,7 +67,6 @@ BLOOK_TEXT_SECTION uint8_t _getStackPointer[] = {
 #endif
 
 getreg_fn_t getStackPointer = (getreg_fn_t)_getStackPointer;
-
 
 } // namespace utils
 } // namespace blook

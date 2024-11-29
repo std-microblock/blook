@@ -38,6 +38,8 @@ class Function {
       }
     }
 
+    std::cout << "Function pointer: " << ptr << std::endl;
+
     const auto fn = reinterpret_cast<std::function<ReturnVal(Args...)> *>(ptr);
     return (*fn)(args...);
   }
@@ -78,13 +80,27 @@ public:
     a.bind(label);
 
     auto fillAddress = [&a](auto reg, size_t offset, size_t value) {
-      a.mov(x86::word_ptr(reg, offset + 0), Imm16(value & 0xFFFF));
-      a.mov(x86::word_ptr(reg, offset + 2), Imm16((value >> 16) & 0xFFFF));
-
       if constexpr (utils::compileArchitecture() ==
                     utils::Architecture::x86_64) {
+        a.mov(x86::word_ptr(reg, offset + 0), Imm16(value & 0xFFFF));
+        a.mov(x86::word_ptr(reg, offset + 2), Imm16((value >> 16) & 0xFFFF));
         a.mov(x86::word_ptr(reg, offset + 4), Imm16((value >> 32) & 0xFFFF));
         a.mov(x86::word_ptr(reg, offset + 6), Imm16((value >> 48) & 0xFFFF));
+        // a.mov(x86::rax, Imm((int64_t)value));
+        // a.mov(x86::qword_ptr(reg, offset), x86::rax);
+      } else {
+        a.push(x86::eax);
+        a.mov(x86::eax, Imm((int32_t)value));
+        // a.mov(x86::dword_ptr(reg, offset), x86::eax);
+        // ^... the above line is not working for some reason,
+        // likely a bug of zydis
+        // it's supposed to produce code like following:
+        // but it ends up with "impossible instruction" error
+        a.db(0x89);
+        a.db(0x44);
+        a.db(0x24);
+        a.db(offset);
+        a.pop(x86::eax);
       }
     };
 
@@ -95,8 +111,8 @@ public:
       a.jmp(x86::rax);
     } else if constexpr (utils::compileArchitecture() ==
                          utils::Architecture::x86_32) {
-      fillAddress(x86::esp, -4 * 25, (size_t)fn);
-      fillAddress(x86::esp, -4 * 26, STACK_MAGIC_NUMBER);
+      fillAddress(x86::esp, -4 * 30, (size_t)fn);
+      fillAddress(x86::esp, -4 * 31, STACK_MAGIC_NUMBER);
       a.jmp(Imm((int32_t)&function_fp_wrapper<ReturnVal, Args...>));
     }
 

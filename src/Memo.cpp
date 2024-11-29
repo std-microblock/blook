@@ -140,7 +140,7 @@ namespace blook {
     MemoryPatch
     Pointer::reassembly(std::function<void(zasm::x86::Assembler)> func) {
         using namespace zasm;
-        Program program(MachineMode::AMD64);
+        Program program(utils::compileMachineMode());
         x86::Assembler b(program);
         func(b);
 
