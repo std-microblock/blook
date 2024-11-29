@@ -162,6 +162,16 @@ namespace blook {
         MemoryRange range_size(std::size_t size);
     };
 
+    struct ScopedSetMemoryRWX {
+        void *ptr;
+        size_t size;
+        void *old_protect;
+
+        ScopedSetMemoryRWX(void *ptr, size_t size);
+
+        ~ScopedSetMemoryRWX();
+    };
+
     class MemoryPatch {
         Pointer ptr;
         std::vector<uint8_t> buffer;

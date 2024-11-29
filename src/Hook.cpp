@@ -83,10 +83,12 @@ void InlineHook::install(bool try_trampoline) {
     p_trampoline = trampolineCode;
   }
 
-  Pointer::protect_rwx(pCodePage, hookSize);
-  origData = std::vector<unsigned char>(hookSize);
-  std::memcpy(origData->data(), pCodePage, hookSize);
-  std::memcpy(pCodePage, serializer.getCode(), hookSize);
+  {
+    ScopedSetMemoryRWX rwxScope(pCodePage, hookSize);
+    origData = std::vector<unsigned char>(hookSize);
+    std::memcpy(origData->data(), pCodePage, hookSize);
+    std::memcpy(pCodePage, serializer.getCode(), hookSize);
+  }
 
   installed = true;
 }
@@ -96,8 +98,12 @@ void InlineHook::uninstall() {
   if (!installed)
     throw std::runtime_error("The hook was not installed.");
 
-  std::memcpy(target, origData->data(), origData->size());
-  origData = {};
+  {
+    ScopedSetMemoryRWX rwxScope(target, origData->size());
+    std::memcpy(target, origData->data(), origData->size());
+    origData = {};
+  }
+
   installed = false;
 }
 

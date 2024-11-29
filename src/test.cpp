@@ -1,12 +1,13 @@
 
-#include "blook/blook.h"
 
-#include "Windows.h"
 #include <algorithm>
 #include <format>
 #include <ostream>
 #include <print>
+
+#include "blook/blook.h"
 #include <winuser.h>
+#include "Windows.h"
 
 void test_wrap_function() {
   const auto wrappedPlain = blook::Function::into_function_pointer(
@@ -59,6 +60,7 @@ void test_inline_hook() {
   MessageBoxA(nullptr, "hi", "hi", 0);
   std::println("Hooked MessageBoxA return");
   hook->uninstall();
+  std::println("Unhooked MessageBoxA");
   MessageBoxA(nullptr, "hi", "hi", 0);
 }
 
