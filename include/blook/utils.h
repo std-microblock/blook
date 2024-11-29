@@ -18,8 +18,10 @@ using getreg_fn_t = void *(*)(void);
 #ifdef __x86_64__
 extern getreg_fn_t getR11;
 #elif defined(__i386__)
-extern getreg_fn_t getECX;
+extern getreg_fn_t getEDX;
 #endif
+
+extern getreg_fn_t getStackPointer;
 
 std::size_t estimateCodeSize(const zasm::Program &program);
 
@@ -29,7 +31,7 @@ enum class Architecture : std::uint8_t {
   x86_64,
 };
 
-constexpr Architecture getCompileArchitecture() {
+constexpr Architecture compileArchitecture() {
 #ifdef __x86_64__
   return Architecture::x86_64;
 #elif defined(__i386__)
@@ -39,8 +41,8 @@ constexpr Architecture getCompileArchitecture() {
 #endif
 }
 
-template <Architecture arch = getCompileArchitecture()>
-constexpr auto getCompileMachineMode() {
+template <Architecture arch = compileArchitecture()>
+constexpr auto compileMachineMode() {
   if constexpr (arch == Architecture::x86_32) {
     return zasm::MachineMode::I386;
   } else if constexpr (arch == Architecture::x86_64) {

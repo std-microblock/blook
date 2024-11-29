@@ -16,7 +16,7 @@ std::size_t estimateCodeSize(const zasm::Program &program) {
       if (instrInfo.hasValue()) {
         size += instrInfo->getLength();
       } else {
-        throw std::runtime_error("Error: Unable to get instruction info");
+        throw std::runtime_error(instrInfo.error().getErrorMessage());
       }
     } else if (auto *nodeEmbeddedLabel = node->getIf<zasm::EmbeddedLabel>();
                nodeEmbeddedLabel != nullptr) {
@@ -39,15 +39,30 @@ BLOOK_TEXT_SECTION uint8_t _getR11[] = {
 
 getreg_fn_t getR11 = (getreg_fn_t)_getR11;
 
-#elif defined(__i386__)
-BLOOK_TEXT_SECTION uint8_t _getECX[] = {
-    // mov eax, ecx
-    0x89, 0xC8,
+BLOOK_TEXT_SECTION uint8_t _getStackPointer[] = {
+    // mov rax, rsp
+    0x48, 0x89, 0xE0,
     // ret
     0xC3};
 
-getreg_fn_t getECX = (getreg_fn_t)_getECX;
+#elif defined(__i386__)
+BLOOK_TEXT_SECTION uint8_t _getEDX[] = {
+    // mov eax, edx
+    0x89, 0xD0,
+    // ret
+    0xC3};
+
+getreg_fn_t getEDX = (getreg_fn_t)_getEDX;
+BLOOK_TEXT_SECTION uint8_t _getStackPointer[] = {
+    // mov eax, esp
+    0x89, 0xE0,
+    // ret
+    0xC3};
+
 #endif
+
+getreg_fn_t getStackPointer = (getreg_fn_t)_getStackPointer;
+
 
 } // namespace utils
 } // namespace blook
