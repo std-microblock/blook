@@ -1,6 +1,5 @@
 #pragma once
 
-#include "dirty_windows.h"
 #include <string>
 
 #ifdef _MSC_VER
@@ -20,15 +19,6 @@ namespace blook {
         void *load_system_module(std::string_view module_name);
 
         void *get_current_module();
-
-        class ContextGuard {
-        public:
-            ContextGuard();
-
-            ~ContextGuard();
-
-            _CONTEXT context;
-        };
     };
 
 } // namespace blook

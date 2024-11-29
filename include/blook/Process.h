@@ -1,7 +1,9 @@
 #pragma once
 
 #include "Module.h"
+
 #include "dirty_windows.h"
+
 #include "utils.h"
 #include <cstdint>
 #include <expected>

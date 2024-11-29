@@ -4,7 +4,6 @@ project(blook)
 set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_C_STANDARD 90)
 
-add_compile_options(/EHsc)
 add_subdirectory(external/zasm)
 
 # MSVC runtime library

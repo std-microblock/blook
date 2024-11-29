@@ -80,13 +80,4 @@ namespace blook {
     void misc::install_optimize_dll_hijacking(std::string_view orig_module) {
         return install_optimize_dll_hijacking(load_system_module(orig_module));
     }
-
-    misc::ContextGuard::ContextGuard() {
-        // unimplemented
-        std::abort();
-    }
-
-    misc::ContextGuard::~ContextGuard() {
-
-    }
 } // namespace blook
