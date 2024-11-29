@@ -49,18 +49,19 @@ void test_wrap_function() {
 static std::shared_ptr<blook::InlineHook> hookMsgBoxA;
 int __stdcall hookMsgBoxAFunc(size_t a, char *text, char *title, size_t b) {
   std::cout << "Hooked MessageBoxA called" << std::endl;
-  return hookMsgBoxA->trampoline_t<int __stdcall(size_t, char *, char *, size_t)>()(
-      a, (char *)"hooked MessageBoxA", text, b);
+  return hookMsgBoxA
+      ->trampoline_t<int __stdcall(size_t, char *, char *, size_t)>()(
+          a, (char *)"hooked MessageBoxA", text, b);
 }
 
 void test_inline_hook() {
   auto process = blook::Process::self();
   hookMsgBoxA = process->module("USER32.DLL")
-                         .value()
-                         ->exports("MessageBoxA")
-                         ->inline_hook();
+                    .value()
+                    ->exports("MessageBoxA")
+                    ->inline_hook();
 
-  hookMsgBoxA->install((void*)hookMsgBoxAFunc);
+  hookMsgBoxA->install((void *)hookMsgBoxAFunc);
   std::println("Hooked MessageBoxA");
 
   MessageBoxA(nullptr, "hi", "hi", 0);
@@ -220,6 +221,7 @@ int main() {
   try {
     std::println("Hello, World!");
 
+    test_xref();
     test_inline_hook();
     test_wrap_function();
   } catch (std::exception &e) {

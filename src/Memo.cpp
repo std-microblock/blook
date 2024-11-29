@@ -191,11 +191,11 @@ std::optional<Function> Pointer::guess_function(size_t max_scan_size) {
     const auto v1 = (*((uint8_t *)p - 1));
     const auto v2 = (*((uint8_t *)p - 2));
     const auto v3 = (*((uint8_t *)p - 3));
-    if (v == 0xCC || v == 0xC3) {
+    if ((v == 0xCC && v1 == 0xCC) || (v == 0xC3 && v1 == 0xCC)) {
       return blook::Function{proc, (void *)(p + 1)};
     }
-    if (v1 == 0 && v2 == 0 && v3 == 0 && v == 0)
-      return blook::Function{proc, (void *)(p + 1)};
+    // if (v1 == 0 && v2 == 0 && v3 == 0 && v == 0)
+    //   return blook::Function{proc, (void *)(p + 1)};
   }
 
   return {};
