@@ -8,7 +8,7 @@
 #include <iostream>
 #include <memory>
 
-#include "Memo.h"
+#include "memo.h"
 #include "misc.h"
 #include "utils.h"
 #include "zasm/base/memory.hpp"

@@ -1,13 +1,12 @@
-#include "blook/Function.h"
+#include "blook/function.h"
 #include "blook/Hook.h"
-#include "blook/Memo.h"
+#include "blook/memo.h"
 #include "blook/Process.h"
 #include <format>
 #include <string>
 
 #include "blook/misc.h"
 
-#include <Windows.h>
 #include <iostream>
 #include <utility>
 

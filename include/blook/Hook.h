@@ -1,7 +1,7 @@
 #pragma once
-#include "Function.h"
+#include "function.h"
 
-#include "Memo.h"
+#include "memo.h"
 #include "utils.h"
 #include <optional>
 

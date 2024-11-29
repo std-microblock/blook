@@ -8,7 +8,7 @@
 
 #include "wintypes.h"
 
-#include "Function.h"
+#include "function.h"
 
 namespace blook {
 class Process;
