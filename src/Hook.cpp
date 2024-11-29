@@ -13,11 +13,15 @@ void InlineHook::install(bool try_trampoline) {
     throw std::runtime_error("The hook is invalid.");
 
   using namespace zasm;
-  Program programRewrite(MachineMode::AMD64);
+  Program programRewrite(utils::compileMachineMode());
   x86::Assembler a(programRewrite);
 
-  a.mov(x86::r11, Imm((int64_t)hook_func));
-  a.jmp(x86::r11);
+  if constexpr (utils::compileArchitecture() == utils::Architecture::x86_64) {
+    a.mov(x86::r11, Imm((int64_t)hook_func));
+    a.jmp(x86::r11);
+  } else {
+    a.jmp(Imm((int32_t)hook_func));
+  }
 
   Serializer serializer;
   void *pCodePage = target;
@@ -31,7 +35,7 @@ void InlineHook::install(bool try_trampoline) {
   const auto hookSize = serializer.getCodeSize();
   Decoder decoder(programRewrite.getMode());
 
-  Program programTrampoline(MachineMode::AMD64);
+  Program programTrampoline(utils::compileMachineMode());
   x86::Assembler b(programTrampoline);
   size_t realOccupiedBytes = 0;
   while (realOccupiedBytes < hookSize) {
@@ -65,7 +69,8 @@ void InlineHook::install(bool try_trampoline) {
     const auto trampoline_code_size =
         utils::estimateCodeSize(programTrampoline);
     trampoline_size = trampoline_code_size;
-    const auto trampolineCode = Pointer::malloc_near_rwx(target, trampoline_size);
+    const auto trampolineCode =
+        Pointer::malloc_near_rwx(target, trampoline_size);
 
     Serializer serializer2;
     if (auto err = serializer2.serialize(
