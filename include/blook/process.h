@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Module.h"
+#include "module.h"
 
 #include "wintypes.h"
 

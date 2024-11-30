@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Concepts.h"
+#include "concepts.h"
 #include "memory_scanner/mb_kmp.h"
 #include "zasm/zasm.hpp"
 #include <deque>
@@ -67,6 +67,7 @@ namespace blook {
         std::vector<uint8_t> read(void *ptr, size_t size) const;
 
         std::span<uint8_t> read_leaked(void *ptr, size_t size);
+
 
         std::expected<void, std::string> write(void *addr, std::span<uint8_t>) const;
 

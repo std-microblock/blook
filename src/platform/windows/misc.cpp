@@ -1,11 +1,7 @@
-//
-// Created by MicroBlock on 2024/6/30.
-//
-
 #include "blook/misc.h"
-#include "blook/Hook.h"
-#include "blook/Module.h"
-#include "blook/Process.h"
+#include "blook/hook.h"
+#include "blook/module.h"
+#include "blook/process.h"
 #include "windows.h"
 #include "winternl.h"
 #include <filesystem>

@@ -1,6 +1,6 @@
 
-#include "blook/Hook.h"
-#include "blook/memo.h"
+#include "blook/blook.h"
+#include <cstdint>
 #include <format>
 
 namespace blook {
@@ -20,7 +20,7 @@ void InlineHook::install(bool try_trampoline) {
     a.mov(x86::r11, Imm((int64_t)hook_func));
     a.jmp(x86::r11);
   } else {
-    a.jmp(Imm((int32_t)hook_func));
+    a.jmp(Imm((uint32_t)hook_func));
   }
 
   Serializer serializer;

@@ -1,7 +1,7 @@
 
-#include "blook/Module.h"
+#include "blook/module.h"
 #include "Windows.h"
-#include "blook/Process.h"
+#include "blook/process.h"
 
 #include <Psapi.h>
 #include <cassert>

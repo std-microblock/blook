@@ -1,7 +1,7 @@
 #include "blook/function.h"
-#include "blook/Hook.h"
+#include "blook/hook.h"
 #include "blook/memo.h"
-#include "blook/Process.h"
+#include "blook/process.h"
 #include <format>
 #include <string>
 

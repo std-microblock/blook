@@ -1,7 +1,7 @@
 #include <thread>
 
-#include "blook/Module.h"
-#include "blook/Process.h"
+#include "blook/module.h"
+#include "blook/process.h"
 #include "blook/misc.h"
 
 #include "windows.h"

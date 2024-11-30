@@ -5,7 +5,7 @@
 // #define NOMINMAX
 
 #include "Windows.h"
-#include "blook/Process.h"
+#include "blook/process.h"
 #include "zasm/formatter/formatter.hpp"
 #include <algorithm>
 #include <cstdint>
