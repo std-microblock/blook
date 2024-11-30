@@ -20,7 +20,7 @@ auto hook = process->module("user32.dll").value()
                    ->inline_hook();
     hook->install([=](int64_t a, char *text, char *title, int64_t b) {
         // DRY: All types are only written once!
-        return hook->call_trampoline<int64_t>()(a, "oh yes", text, b);
+        return hook->call_trampoline<int64_t>(a, "oh yes", text, b);
     });
 
 MessageBoxA(nullptr, "hi", "hi", 0);
@@ -38,7 +38,7 @@ for (auto& func: mod.obtain_exports()) {
     hook->install([=](int64_t a) -> int64_t {
         // Yes, capture anything you want!
         std::cout << "Someone called: " << std::hex << func << "\n";
-        return hook->trampoline_t<int64_t(int64_t)>()(a);
+        return hook->call_trampoline<int64_t>(a);
     });
 }
 ```
@@ -60,7 +60,7 @@ auto hook = text_segment.find_one({
 // And now it's easy to hook it.
 hook->install([=](int64_t a) -> int64_t {
     std::cout << "Someone called some internal function!\n";
-    return hook->trampoline_t<int64_t(int64_t)>()(a);
+    return hook->call_trampoline<int64_t>(a);
 });
 ```
 
