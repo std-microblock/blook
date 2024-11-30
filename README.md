@@ -110,3 +110,15 @@ target_link_libraries(your_target blook)
 ### Manual installation
 
 It's strongly discouraged to use the project without CMake, but it should be possible.
+
+## Platforms
+
+- std::function to function pointer [Windows x86/x64]
+- Inline Hook [Windows x86/x64]
+- Cross reference [Windows x86/x64]
+- AOB Scanning [Windows x86/x64]
+- Reassembly [Windows x86/x64]
+- Disassembly [Windowx x86/x64 (Zydis)]
+- Foreign process memory operations [Windows x86/x64]
+
+Linux/Mac support WIP.
