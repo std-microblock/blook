@@ -33,6 +33,12 @@ public:
   template <typename Func> inline auto trampoline_t() -> Func * {
     return reinterpret_cast<Func *>(p_trampoline);
   }
+
+  template <typename ReturnType, typename... Args>
+  inline auto call_trampoline(Args... args) -> ReturnType {
+    return reinterpret_cast<ReturnType (*)(Args...)>(p_trampoline)(args...);
+  }
+
   void install(bool try_trampoline = true);
   void uninstall();
   inline void install(auto &&func, bool try_trampoline = true) {

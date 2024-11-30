@@ -1,13 +1,15 @@
-#include "blook/hook.h"
 #include "blook/blook.h"
+#include "blook/hook.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <format>
 #include <memory>
 #include <ostream>
 #include <print>
 
 #include "Windows.h"
+#include "blook/memo.h"
 #include <winuser.h>
 
 void test_wrap_function() {
@@ -54,6 +56,11 @@ int __stdcall hookMsgBoxAFunc(size_t a, char *text, char *title, size_t b) {
           a, (char *)"hooked MessageBoxA", text, b);
 }
 
+[[clang::noinline]] [[gnu::noinline]] [[msvc::noinline]]
+int32_t AplusB(int32_t a, int32_t b) {
+  return a + b;
+}
+
 void test_inline_hook() {
   auto process = blook::Process::self();
   hookMsgBoxA = process->module("USER32.DLL")
@@ -70,6 +77,15 @@ void test_inline_hook() {
   std::println("Unhooked MessageBoxA");
   MessageBoxA(nullptr, "hi", "hi", 0);
   std::println("Unhooked MessageBoxA return");
+
+  auto hookAPB = blook::Pointer((void *)AplusB).as_function().inline_hook();
+  hookAPB->install([=](int32_t a, int32_t b) {
+    std::cout << "Hooked AplusB called" << std::endl;
+    return hookAPB->call_trampoline<int32_t>(a, b);
+  });
+
+  std::cout << "AplusB(1, 2) = " << AplusB(1, 2) << std::endl;
+
   return;
 }
 
@@ -224,6 +240,7 @@ int main() {
     test_xref();
     test_inline_hook();
     test_wrap_function();
+    test_disassembly_iterator();
   } catch (std::exception &e) {
     std::cerr << e.what();
     abort();
