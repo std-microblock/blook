@@ -2,9 +2,6 @@
 
 #include "blook/disassembly.h"
 
-// #define NOMINMAX
-
-#include "Windows.h"
 #include "blook/process.h"
 #include "zasm/formatter/formatter.hpp"
 #include <algorithm>

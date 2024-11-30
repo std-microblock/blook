@@ -2,7 +2,7 @@
 
 #include "module.h"
 
-#include "wintypes.h"
+#include "platform_types.h"
 
 #include "utils.h"
 #include <cstdint>
@@ -50,7 +50,7 @@ class Process : public std::enable_shared_from_this<Process> {
   explicit Process(std::string name);
 
 protected:
-  HANDLE h = nullptr;
+  WIN_ONLY(HANDLE h = nullptr);
   friend Module;
   friend Pointer;
 

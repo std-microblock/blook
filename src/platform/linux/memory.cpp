@@ -15,7 +15,8 @@ ScopedSetMemoryRWX::ScopedSetMemoryRWX(void *ptr, size_t size) {
 }
 
 ScopedSetMemoryRWX::~ScopedSetMemoryRWX() {
-    mprotect(ptr, size, old_protect);
+    // TODO: remember old protection for real
+    mprotect(ptr, size, PROT_READ | PROT_EXEC);
 }
 
 void *Pointer::malloc_rwx(size_t size) {
