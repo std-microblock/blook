@@ -36,9 +36,9 @@ set(BLOOK_SOURCE_UNIVERSAL src/function.cpp
 
 if(WIN32)
     add_executable(blook-dll-hijack-codegen src/platform/windows/codegen/DllHijackCodegen.cpp)
-    add_library(blook SHARED ${BLOOK_SOURCE_WINDOWS} ${BLOOK_SOURCE_UNIVERSAL})
+    add_library(blook STATIC ${BLOOK_SOURCE_WINDOWS} ${BLOOK_SOURCE_UNIVERSAL})
 elseif(UNIX)
-    add_library(blook SHARED ${BLOOK_SOURCE_LINUX} ${BLOOK_SOURCE_UNIVERSAL})
+    add_library(blook STATIC ${BLOOK_SOURCE_LINUX} ${BLOOK_SOURCE_UNIVERSAL})
 endif()
 
 target_include_directories(blook PUBLIC ./include)
