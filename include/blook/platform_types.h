@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef WIN32
+#ifdef _WIN32
 #define WIN_ONLY(...) __VA_ARGS__
 #define LINUX_ONLY(...)
 struct HINSTANCE__;

@@ -167,7 +167,7 @@ namespace blook {
     }
 
     size_t Module::size() {
-#ifdef WIN32
+#ifdef _WIN32
         MODULEINFO moduleInfo;
         GetModuleInformation(GetCurrentProcess(), (HMODULE) pModule, &moduleInfo,
                              sizeof(MODULEINFO));
