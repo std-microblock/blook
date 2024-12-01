@@ -1,4 +1,5 @@
 #pragma once
+#include "blook/memo.h"
 #include "blook/utils.h"
 
 #include <cstddef>
@@ -57,16 +58,14 @@ public:
   }
 
   template <typename ReturnVal, typename... Args>
-  static inline auto
-  into_function_pointer(std::function<ReturnVal(Args...)> &&fn)
-      -> ReturnVal (*)(Args...) {
+  static inline auto into_function_pointer(
+      std::function<ReturnVal(Args...)> &&fn) -> ReturnVal (*)(Args...) {
     return into_function_pointer(new std::function(std::move(fn)));
   }
 
   template <typename ReturnVal, typename... Args>
-  static inline auto
-  into_function_pointer(std::function<ReturnVal(Args...)> *fn)
-      -> ReturnVal (*)(Args...) {
+  static inline auto into_function_pointer(
+      std::function<ReturnVal(Args...)> *fn) -> ReturnVal (*)(Args...) {
     std::cout << (void *)fn << std::endl;
     using namespace zasm;
 
@@ -126,7 +125,8 @@ public:
     assert(funcAddress != -1);
     return reinterpret_cast<ReturnVal (*)(Args...)>(funcAddress);
   }
-  template <typename T = void *> T data() const { return (T)ptr; }
+  template <typename T = void *> inline T data() const { return (T)ptr; }
+  inline Pointer pointer() const { return Pointer(process, ptr); }
   std::shared_ptr<InlineHook> inline_hook();
 };
 
