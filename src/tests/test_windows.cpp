@@ -2,6 +2,7 @@
 #include "blook/hook.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cstdint>
 #include <format>
 #include <memory>
@@ -205,6 +206,18 @@ void test_dwm_big_round_corner() {
   std::cout << "Total bytes disassembled: " << cnt << std::endl;
 }
 
+__declspec(dllexport) extern "C" void f_test_exports() {
+  std::cout << "Exported function called" << std::endl;
+}
+
+void test_exports() {
+  auto proc = blook::Process::self();
+  auto mod = proc->process_module().value();
+  auto exports = mod->exports("f_test_exports").value();
+  assert(exports.data<void*>() == (void *)&f_test_exports);
+  std::println("EAT parse passed");
+}
+
 void test_qq_iter() {
   using namespace blook;
   auto proc = Process::attach("QQ.exe");
@@ -236,7 +249,7 @@ int main() {
 
   try {
     std::println("Hello, World!");
-
+    test_exports();
     test_xref();
     test_inline_hook();
     test_wrap_function();
