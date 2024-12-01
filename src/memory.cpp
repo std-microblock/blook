@@ -8,7 +8,6 @@
 #include <cstdint>
 #include <utility>
 
-
 #include <iostream>
 
 namespace blook {
@@ -65,11 +64,20 @@ MemoryPatch::MemoryPatch(Pointer ptr, std::vector<uint8_t> buffer)
 
 void MemoryPatch::swap() {
   const auto target = reinterpret_cast<void *>(ptr._offset);
-  Pointer::protect_rwx(target, buffer.size());
-  std::vector<uint8_t> tmp(buffer.size());
-  std::memcpy(tmp.data(), buffer.data(), buffer.size());
-  std::memcpy(buffer.data(), target, buffer.size());
-  std::memcpy(target, tmp.data(), tmp.size());
+  if (ptr.proc->is_self()) {
+    Pointer::protect_rwx(target, buffer.size());
+    std::vector<uint8_t> tmp(buffer.size());
+    std::memcpy(tmp.data(), buffer.data(), buffer.size());
+    std::memcpy(buffer.data(), target, buffer.size());
+    std::memcpy(target, tmp.data(), tmp.size());
+  } else {
+    std::vector<uint8_t> tmp(buffer.size());
+    ptr.proc->read(tmp.data(), target, buffer.size());
+    if (!ptr.proc->write(target, buffer))
+      throw std::runtime_error("Failed to write memory");
+    buffer = std::move(tmp);
+  }
+
   patched = !patched;
 }
 
@@ -108,8 +116,6 @@ std::optional<Function> Pointer::guess_function(size_t max_scan_size) {
 
   return {};
 }
-
-
 
 std::optional<Pointer> Pointer::offsets(const std::vector<size_t> &offsets,
                                         size_t scale) {
