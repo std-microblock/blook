@@ -6,7 +6,6 @@
 #include <string>
 
 #include "blook/misc.h"
-
 #include <iostream>
 #include <utility>
 
@@ -35,7 +34,7 @@ namespace blook {
     }
 } // namespace blook
 
-#ifdef __x86_64__
+#ifdef BLOOK_ARCHITECTURE_X86_64
 BLOOK_TEXT_SECTION uint8_t _getCaller[] = {
         0x55, // push rbp
         0x48, 0x89, 0xe5, // mov rbp, rsp
@@ -43,7 +42,7 @@ BLOOK_TEXT_SECTION uint8_t _getCaller[] = {
         0x5d, // pop rbp
         0xc3 // ret
 };//
-#elif defined(__i386__)
+#elif defined(BLOOK_ARCHITECTURE_X86_32)
 BLOOK_TEXT_SECTION uint8_t _getCaller[] = {
         0x55, // push ebp
         0x89, 0xe5, // mov ebp, esp
@@ -52,4 +51,4 @@ BLOOK_TEXT_SECTION uint8_t _getCaller[] = {
 };
 #endif
 using getCaller_t = void *();
-auto getCaller = (getCaller_t *) _getCaller;
+auto getCaller = (getCaller_t *) (void*)_getCaller;

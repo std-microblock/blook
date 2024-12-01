@@ -35,14 +35,14 @@ std::size_t estimateCodeSize(const zasm::Program &program) {
   return size;
 }
 
-#ifdef __x86_64__
+#ifdef BLOOK_ARCHITECTURE_X86_64
 BLOOK_TEXT_SECTION uint8_t _getR11[] = {
     // mov rax, r11
     0x4C, 0x89, 0xD8,
     // ret
     0xC3};
 
-getreg_fn_t getR11 = (getreg_fn_t)_getR11;
+getreg_fn_t getR11 = (getreg_fn_t)(void*)_getR11;
 
 BLOOK_TEXT_SECTION uint8_t _getStackPointer[] = {
     // mov rax, rsp
@@ -50,14 +50,14 @@ BLOOK_TEXT_SECTION uint8_t _getStackPointer[] = {
     // ret
     0xC3};
 
-#elif defined(__i386__)
+#elif defined(BLOOK_ARCHITECTURE_X86_32)
 BLOOK_TEXT_SECTION uint8_t _getEDX[] = {
     // mov eax, edx
     0x89, 0xD0,
     // ret
     0xC3};
 
-getreg_fn_t getEDX = (getreg_fn_t)_getEDX;
+getreg_fn_t getEDX = (getreg_fn_t)(void*)_getEDX;
 BLOOK_TEXT_SECTION uint8_t _getStackPointer[] = {
     // mov eax, esp
     0x89, 0xE0,
@@ -66,7 +66,7 @@ BLOOK_TEXT_SECTION uint8_t _getStackPointer[] = {
 
 #endif
 
-getreg_fn_t getStackPointer = (getreg_fn_t)_getStackPointer;
+getreg_fn_t getStackPointer = (getreg_fn_t)(void*)_getStackPointer;
 
 } // namespace utils
 } // namespace blook

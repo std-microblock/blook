@@ -11,13 +11,20 @@
   classname(classname &&) noexcept = default;                                  \
   classname &operator=(classname &&) noexcept = default;
 
+
+#if defined(__x86_64__) || defined(_M_X64)
+#define BLOOK_ARCHITECTURE_X86_64
+#elif defined(i386) || defined(__i386__) || defined(__i386) || defined(_M_IX86)
+#define BLOOK_ARCHITECTURE_X86_32
+#endif
+
 namespace blook {
 
 namespace utils {
 using getreg_fn_t = void *(*)(void);
-#ifdef __x86_64__
+#ifdef BLOOK_ARCHITECTURE_X86_64
 extern getreg_fn_t getR11;
-#elif defined(__i386__)
+#elif defined(BLOOK_ARCHITECTURE_X86_32)
 extern getreg_fn_t getEDX;
 #endif
 
@@ -32,9 +39,9 @@ enum class Architecture : std::uint8_t {
 };
 
 constexpr Architecture compileArchitecture() {
-#ifdef __x86_64__
+#if defined(BLOOK_ARCHITECTURE_X86_64)
   return Architecture::x86_64;
-#elif defined(__i386__)
+#elif defined(BLOOK_ARCHITECTURE_X86_32)
   return Architecture::x86_32;
 #else
   static_assert(false, "Unsupported architecture");
