@@ -14,12 +14,6 @@ if(WIN32)
     endif()
 endif()
 
-# TODO: remove dirty patch
-if(UNIX)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -stdlib=libc++")
-    set(CMAKE_EXE_LINKER_FLAGS "-lc++abi")
-endif()
-
 set(BLOOK_SOURCE_WINDOWS src/platform/windows/process.cpp
     src/platform/windows/module.cpp
     src/platform/windows/memory.cpp
