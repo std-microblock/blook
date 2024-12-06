@@ -64,7 +64,7 @@ namespace blook {
             explicit DisassembleRange(
                     Range range, const Pointer &address,
                     zasm::MachineMode machine_mode = utils::compileMachineMode())
-                    : range(range), address(address), address_begin(address),
+                    : address(address), address_begin(address), range(range),
                       machine_mode(machine_mode) {
                 ptr = range.begin();
                 decode_next();
