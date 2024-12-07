@@ -57,6 +57,12 @@ public:
   Function(std::shared_ptr<Process> proc, void *p_func, std::string name);
   CLASS_MOVE_ONLY(Function)
 
+  // specialization for function pointers
+  template <typename ReturnVal, typename... Args>
+  static inline auto into_function_pointer(ReturnVal (*fn)(Args...)) {
+    return fn;
+  }
+
   static inline auto into_function_pointer(auto &&fn) {
     return into_function_pointer(std::function(std::forward<decltype(fn)>(fn)));
   }
