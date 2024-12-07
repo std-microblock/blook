@@ -13,7 +13,17 @@
 #include "blook/memo.h"
 #include <winuser.h>
 
+void safe_wrapper_tester(int a, int b) {
+  std::println("Safe wrapper called");
+  std::println("a: {}, b: {}", a, b);
+}
+
 void test_wrap_function() {
+  std::println("Testing function safe wrapper");
+  auto safe = blook::Function::into_safe_function_pointer(safe_wrapper_tester, false);
+  std::println("Safe wrapper created at: {}", (void*)safe);
+  safe(1, 2);
+
   std::println("Testing function wrapping");
   const auto wrappedPlain = blook::Function::into_function_pointer(
       +[](int64_t a, int64_t b) { return a + b; });

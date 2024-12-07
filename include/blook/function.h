@@ -68,16 +68,14 @@ public:
   }
 
   template <typename ReturnVal, typename... Args>
-  static inline auto
-  into_function_pointer(std::function<ReturnVal(Args...)> &&fn)
-      -> ReturnVal (*)(Args...) {
+  static inline auto into_function_pointer(
+      std::function<ReturnVal(Args...)> &&fn) -> ReturnVal (*)(Args...) {
     return into_function_pointer(new std::function(std::move(fn)));
   }
 
   template <typename ReturnVal, typename... Args>
-  static inline auto
-  into_function_pointer(std::function<ReturnVal(Args...)> *fn)
-      -> ReturnVal (*)(Args...) {
+  static inline auto into_function_pointer(
+      std::function<ReturnVal(Args...)> *fn) -> ReturnVal (*)(Args...) {
     std::cout << (void *)fn << std::endl;
     using namespace zasm;
 
@@ -137,6 +135,28 @@ public:
     assert(funcAddress != -1);
     return reinterpret_cast<ReturnVal (*)(Args...)>(funcAddress);
   }
+
+  /*
+   This function is used to convert a function pointer into a safe function
+   pointer, which is a function pointer that would not contaminate the
+   registers
+
+    * @param func the function pointer to convert
+    * @param thread_safety whether the function is thread safe. This is
+    * implemented by allocating memory, so it is not recommended to set this to
+    * true if the function is called frequently, as it would greatly slow down
+    * the program.
+   */
+  static void *into_safe_function_pointer(void *func, bool thread_safety);
+
+  static inline auto into_safe_function_pointer(auto &&fn,
+                                                bool thread_safety = false) {
+    return (decltype(into_function_pointer(std::forward<decltype(fn)>(fn))))
+        into_safe_function_pointer(
+            (void *)into_function_pointer(std::forward<decltype(fn)>(fn)),
+            thread_safety);
+  }
+
   template <typename T = void *> inline T data() const { return (T)ptr; }
   inline Pointer pointer() const { return Pointer(process, ptr); }
   std::shared_ptr<InlineHook> inline_hook();

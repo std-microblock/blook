@@ -15,7 +15,6 @@ std::vector<Pointer> InstructionCtx::xrefs() const {
     if (const Mem *opMem = op.getIf<Mem>(); opMem != nullptr) {
       if (opMem->getBase() == x86::rip || opMem->getBase() == x86::eip) {
         auto ptr = (void *)opMem->getDisplacement();
-        std::cout << "RIP/EIP: " << ptr << std::endl;
         ptrs.emplace_back(ptr);
       }
     }
