@@ -248,11 +248,11 @@ int main() {
   //   MessageBoxA(nullptr, "hi", "hi", 0);
 
   try {
-    std::println("Hello, World!");
+    std::println("blook-test started");
+    test_wrap_function();
     test_exports();
     test_xref();
     test_inline_hook();
-    test_wrap_function();
     test_disassembly_iterator();
   } catch (std::exception &e) {
     std::cerr << e.what();

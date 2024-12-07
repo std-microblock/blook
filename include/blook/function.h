@@ -28,16 +28,20 @@ class Function {
   template <typename ReturnVal, typename... Args>
   static ReturnVal function_fp_wrapper(Args... args) {
     auto stack = (size_t *)utils::getStackPointer();
-
-    void *ptr = nullptr;
-    for (int i = 0; i > -100; i--) {
-      if (stack[i] == STACK_MAGIC_NUMBER) {
-
-        ptr = (void *)(stack[i + 1]);
-        break;
+    static short stackMagicOffset = -1;
+    if (stackMagicOffset == -1) {
+      for (int i = 0; i > -100; i--) {
+        if (stack[i] == STACK_MAGIC_NUMBER) {
+          stackMagicOffset = i + 1;
+          break;
+        }
       }
+
+      if (stackMagicOffset == -1)
+        throw std::runtime_error("Failed to find stack magic number");
     }
 
+    auto ptr = (void *)(stack[stackMagicOffset]);
     const auto fn = reinterpret_cast<std::function<ReturnVal(Args...)> *>(ptr);
     return (*fn)(args...);
   }
@@ -58,14 +62,16 @@ public:
   }
 
   template <typename ReturnVal, typename... Args>
-  static inline auto into_function_pointer(
-      std::function<ReturnVal(Args...)> &&fn) -> ReturnVal (*)(Args...) {
+  static inline auto
+  into_function_pointer(std::function<ReturnVal(Args...)> &&fn)
+      -> ReturnVal (*)(Args...) {
     return into_function_pointer(new std::function(std::move(fn)));
   }
 
   template <typename ReturnVal, typename... Args>
-  static inline auto into_function_pointer(
-      std::function<ReturnVal(Args...)> *fn) -> ReturnVal (*)(Args...) {
+  static inline auto
+  into_function_pointer(std::function<ReturnVal(Args...)> *fn)
+      -> ReturnVal (*)(Args...) {
     std::cout << (void *)fn << std::endl;
     using namespace zasm;
 
