@@ -67,7 +67,7 @@ HANDLE NtCreateThreadEx(HANDLE hProcess, LPVOID lpBaseAddress, LPVOID lpSpace) {
 
 namespace blook {
 std::optional<Function> Module::exports(const std::string &name) {
-  if (!proc->is_self()) {
+  if (proc->is_self()) {
     const auto addr = GetProcAddress(pModule, name.c_str());
     if (addr)
       return Function(proc, (void *)addr, name);
