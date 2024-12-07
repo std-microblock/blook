@@ -266,7 +266,9 @@ namespace blook {
                 if (cache->buffer.empty() || /* !(cache->offset ∈ [ptr, ptr+cache->size]) */
                     cache->offset > ptr.offset() ||
                     cache->offset + cache->buffer.size() <= ptr.offset()) {
-                    cache->buffer = std::move(ptr.read(0, bufSize));
+                    cache->buffer = std::move(ptr.read(0, 
+                        std::min(bufSize, size)
+                    ));
                     cache->offset = ptr.offset();
                 }
 
@@ -280,7 +282,7 @@ namespace blook {
             using iterator_category = std::input_iterator_tag;
         };
 
-        using MemoryIterator = MemoryIteratorBuffered<1024 * 1024>;
+        using MemoryIterator = MemoryIteratorBuffered<1024 * 4>;
 
         using iterator = MemoryIterator;
         using const_iterator = MemoryIterator;
