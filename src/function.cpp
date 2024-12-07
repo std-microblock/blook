@@ -56,112 +56,121 @@ void *Function::into_safe_function_pointer(void *func, bool thread_safety) {
 
   auto ptr = ((Pointer)Pointer::malloc_near_rwx(func, 300));
   ptr.reassembly([=](auto a) {
-       if (thread_safety) {
-         throw std::runtime_error("Thread safety is not implemented yet");
-       } else {
-         // saver struct:
-         // 0: origin content on [sp + size_t] as we are going to overwrite it
-         // to store the pointer to the saver
-         // 1: origin return address
-         // 2: regs_to_save[0] --> the origin value of tmp; this have to be
-         // processed specially 3: regs_to_save[1] --> the origin value of tmp2
-         auto saver = malloc(sizeof(size_t) * (regs_to_save.size() + 2));
 #ifdef BLOOK_ARCHITECTURE_X86_64
-         auto sp = x86::rsp;
-         auto tmp = x86::rax;
-         auto tmp2 = x86::rcx;
-         auto pc = x86::rip;
+       auto sp = x86::rsp;
+       auto tmp = x86::rax;
+       auto tmp2 = x86::rcx;
+       auto pc = x86::rip;
 
-         auto word_ptr = [](auto &&...args) {
-           return x86::qword_ptr(std::forward<decltype(args)>(args)...);
-         };
+       auto word_ptr = [](auto &&...args) {
+         return x86::qword_ptr(std::forward<decltype(args)>(args)...);
+       };
 #elif defined(BLOOK_ARCHITECTURE_X86_32)
-         auto sp = x86::esp;
-         auto tmp = x86::eax;
-         auto tmp2 = x86::ecx;
-         auto pc = x86::eip;
+       auto sp = x86::esp;
+       auto tmp = x86::eax;
+       auto tmp2 = x86::ecx;
+       auto pc = x86::eip;
 
-         auto word_ptr = [](auto &&...args) {
-           return x86::dword_ptr(std::forward<decltype(args)>(args)...);
-         };
+       auto word_ptr = [](auto &&...args) {
+         return x86::dword_ptr(std::forward<decltype(args)>(args)...);
+       };
 #endif
 
-         // borrow some space from unused stack to store the sp value
-         // we are going to overwrite it
-         a.mov(word_ptr(sp, -sizeof(size_t)), tmp);
-         a.mov(word_ptr(sp, -2 * sizeof(size_t)), tmp2);
+       // saver struct:
+       // 0: origin content on [sp + size_t] as we are going to overwrite it
+       //    to store the pointer to the saver
+       // 1: origin return address
+       // 2: regs_to_save[0] --> the origin value of tmp; this have to be
+       //    processed specially
+       // 3: regs_to_save[1] --> the origin value of tmp2
+       auto saver_size = sizeof(size_t) * (regs_to_save.size() + 2);
+       auto saver = thread_safety ? 0 : malloc(saver_size);
 
-         // rax -> saver address
-         a.mov(tmp, Imm((size_t)saver));
+       static constexpr auto magic_stack_offset = -500;
 
-         auto saverOffset = [&](auto i) {
-           return word_ptr(tmp, i * sizeof(size_t));
-         };
-
-         for (size_t i = 0; i < regs_to_save.size(); i++) {
-           a.mov(saverOffset(i + 2), regs_to_save[i]);
+       auto restoreSaverAddr = [&](bool after_call = false) {
+         if (thread_safety) {
+           a.lea(tmp, word_ptr(sp, (magic_stack_offset - after_call) * sizeof(size_t)));
+         } else {
+           a.mov(tmp, Imm((size_t)saver));
          }
+       };
 
-         // save the return address
-         auto returnAddr = word_ptr(sp, 0);
-         auto saverAddr = word_ptr(sp, sizeof(size_t));
-         a.mov(tmp2, returnAddr);
-         a.mov(saverOffset(1), tmp2);
+       // borrow some space from unused stack to store the sp value
+       // we are going to overwrite it
+       a.mov(word_ptr(sp, -sizeof(size_t)), tmp);
+       a.mov(word_ptr(sp, -2 * sizeof(size_t)), tmp2);
 
-         //  override the stack
-         a.mov(tmp2, saverAddr);
-         a.mov(saverOffset(0), tmp2);
-         a.mov(tmp2, Imm((int64_t)saver));
-         a.mov(saverAddr, tmp2);
+       // rax -> saver address
+       restoreSaverAddr();
 
-         // hook the return address
-         auto restorerLabel = a.createLabel();
-         a.mov(tmp, restorerLabel);
-         a.mov(returnAddr, tmp);
+       auto saverOffset = [&](auto i) {
+         return word_ptr(tmp, i * sizeof(size_t));
+       };
 
-         a.mov(tmp, Imm((size_t)saver));
+       for (size_t i = 0; i < regs_to_save.size(); i++) {
+         a.mov(saverOffset(i + 2), regs_to_save[i]);
+       }
 
-         // record the value of tmp1 and tmp2
-         a.mov(tmp2, word_ptr(sp, -sizeof(size_t)));
-         a.mov(saverOffset(2), tmp2);
-         a.mov(tmp2, word_ptr(sp, -2 * sizeof(size_t)));
-         a.mov(saverOffset(3), tmp2);
+       // save the return address
+       auto returnAddr = word_ptr(sp, 0);
+       auto saverAddr = word_ptr(sp, sizeof(size_t));
+       a.mov(tmp2, returnAddr);
+       a.mov(saverOffset(1), tmp2);
 
-         // restore tmp and tmp2
-         a.mov(tmp, word_ptr(sp, -sizeof(size_t)));
-         a.mov(tmp2, word_ptr(sp, -2 * sizeof(size_t)));
+       //  override the stack
+       a.mov(tmp2, saverAddr);
+       a.mov(saverOffset(0), tmp2);
+       restoreSaverAddr();
+       a.mov(saverAddr, tmp);
+
+       // hook the return address
+       auto restorerLabel = a.createLabel();
+       a.mov(tmp, restorerLabel);
+       a.mov(returnAddr, tmp);
+
+       restoreSaverAddr();
+
+       // record the value of tmp1 and tmp2
+       a.mov(tmp2, word_ptr(sp, -sizeof(size_t)));
+       a.mov(saverOffset(2), tmp2);
+       a.mov(tmp2, word_ptr(sp, -2 * sizeof(size_t)));
+       a.mov(saverOffset(3), tmp2);
+
+       // restore tmp and tmp2
+       a.mov(tmp, word_ptr(sp, -sizeof(size_t)));
+       a.mov(tmp2, word_ptr(sp, -2 * sizeof(size_t)));
 // jump to the function
 #ifdef BLOOK_ARCHITECTURE_X86_64
-         a.mov(x86::rax, Imm((int64_t)func));
-         a.jmp(x86::rax);
+       a.mov(x86::rax, Imm((int64_t)func));
+       a.jmp(x86::rax);
 #elif defined(BLOOK_ARCHITECTURE_X86_32)
-         a.jmp(Imm((int32_t)func));
+       a.jmp(Imm((int32_t)func));
 #endif
 
-         // restorer
-         a.int3();
-         a.bind(restorerLabel);
+       // ---------- restorer ----------
+       a.int3();
+       a.bind(restorerLabel);
 
-         a.mov(tmp, Imm((size_t)saver));
+       restoreSaverAddr(true);
 
-         // restore the stack we occupied
-         a.mov(tmp, saverOffset(0));
-         a.mov(word_ptr(sp, 0), tmp);
+       // restore the stack we occupied
+       a.mov(tmp, saverOffset(0));
+       a.mov(word_ptr(sp, 0), tmp);
 
-         a.mov(tmp, Imm((size_t)saver));
+       restoreSaverAddr(true);
 
-         // pushs the return address onto the stack
-         a.push(saverOffset(1));
+       // pushs the return address onto the stack
+       a.push(saverOffset(1));
 
-         // the order of restoring is reversed to ensure tmp is restored last
-         for (int i = regs_to_save.size() - 1; i >= 0; i--) {
-           a.mov(regs_to_save[i], saverOffset(i + 2));
-         }
-
-         a.ret();
-         // why the fuck we need to dd here to get our ret
-         a.dd(1);
+       // the order of restoring is reversed to ensure tmp is restored last
+       for (int i = regs_to_save.size() - 1; i >= 0; i--) {
+         a.mov(regs_to_save[i], saverOffset(i + 2));
        }
+
+       a.ret();
+       // why the fuck we need to dd here to get our ret
+       a.dd(1);
      })
       .patch();
 

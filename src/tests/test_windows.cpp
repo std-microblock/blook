@@ -19,10 +19,15 @@ void safe_wrapper_tester(int a, int b) {
 }
 
 void test_wrap_function() {
-  std::println("Testing function safe wrapper");
+  std::println("Creating function safe wrapper");
   auto safe = blook::Function::into_safe_function_pointer(safe_wrapper_tester, false);
   std::println("Safe wrapper created at: {}", (void*)safe);
   safe(1, 2);
+
+  std::println("Creating function safe wrapper with thread safety");
+  auto safe2 = blook::Function::into_safe_function_pointer(safe_wrapper_tester, true);
+  std::println("Safe wrapper created at: {}", (void*)safe2);
+  safe2(1, 2);
 
   std::println("Testing function wrapping");
   const auto wrappedPlain = blook::Function::into_function_pointer(

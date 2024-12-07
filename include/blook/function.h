@@ -143,9 +143,9 @@ public:
 
     * @param func the function pointer to convert
     * @param thread_safety whether the function is thread safe. This is
-    * implemented by allocating memory, so it is not recommended to set this to
-    * true if the function is called frequently, as it would greatly slow down
-    * the program.
+    * implemented by occupying some space on the unused stack to store the
+    * registers. So this might cause some problems if the function is so big
+    * that it would overwrite the stack.
    */
   static void *into_safe_function_pointer(void *func, bool thread_safety);
 
