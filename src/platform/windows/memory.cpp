@@ -1,4 +1,6 @@
 #include "blook/blook.h"
+#include "blook/memo.h"
+#include "blook/process.h"
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -15,8 +17,7 @@ ScopedSetMemoryRWX::~ScopedSetMemoryRWX() {
 }
 
 void *Pointer::malloc_rwx(size_t size) {
-  return VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE,
-                      PAGE_EXECUTE_READWRITE);
+  return Process::self()->memo().malloc(size, Pointer::MemoryProtection::rwx);
 }
 
 void Pointer::protect_rwx(void *p, size_t size) {

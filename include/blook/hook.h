@@ -55,14 +55,4 @@ public:
     install(try_trampoline);
   }
 };
-
-template <typename ReturnVal, typename... Args>
-struct InlineHookT : public InlineHook {
-  inline constexpr InlineHookT(void *target, void *hook_func)
-      : InlineHook(target, hook_func) {}
-  inline auto trampoline() -> ReturnVal (*)(Args...) {
-    return reinterpret_cast<ReturnVal (*)(Args...)>(p_trampoline);
-  }
-};
-template <typename... T> using SIH = std::shared_ptr<InlineHookT<T...>>;
 } // namespace blook
