@@ -20,7 +20,6 @@ class Pointer;
 class Process : public std::enable_shared_from_this<Process> {
 #ifdef _WIN32
 
-  DWORD pid;
 
   explicit Process(HANDLE h);
 
@@ -56,7 +55,9 @@ protected:
 
 public:
   CLASS_MOVE_ONLY(Process)
-
+#ifdef _WIN32
+  DWORD pid;
+#endif
   [[nodiscard]] std::optional<std::vector<std::uint8_t>>
   read(void *addr, size_t size) const;
 

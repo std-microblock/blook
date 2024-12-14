@@ -148,10 +148,10 @@ Pointer::find_upwards(std::initializer_list<uint8_t> pattern,
     }
 
   else {
-    auto data = p.read(nullptr, max_scan_size);
-    for (size_t i = data.size() - pattern.size(); i > 0; i--) {
+    auto data = p.sub(max_scan_size).read(nullptr, max_scan_size);
+    for (size_t i = max_scan_size - pattern.size(); i > 0; i--) {
       if (memcmp(pattern.begin(), data.data() + i, pattern.size()) == 0) {
-        return p.sub(data.size() - i);
+        return p.sub(max_scan_size - i);
       }
     }
   }
@@ -162,7 +162,7 @@ Pointer::find_upwards(std::initializer_list<uint8_t> pattern,
 MemoryRange Pointer::range_to(Pointer ptr) {
   if (ptr <= (*this))
     return MemoryRange{*this, 0};
-  return MemoryRange{*this, (size_t)(ptr - this)};
+  return MemoryRange{*this, (size_t)ptr.data() - (size_t)this->data()};
 }
 
 MemoryRange Pointer::range_size(std::size_t size) {
