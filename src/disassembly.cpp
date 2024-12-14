@@ -21,7 +21,7 @@ std::vector<Pointer> InstructionCtx::xrefs() const {
 
     if (const Imm *opImm = op.getIf<Imm>(); opImm != nullptr) {
       const auto data = opImm->value<size_t>();
-      ptrs.emplace_back((void *)data);
+      ptrs.emplace_back(ptr().absolute(data));
     }
   }
 
