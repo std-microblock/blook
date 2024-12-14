@@ -115,7 +115,6 @@ public:
 
   private:
     void decode_next() {
-      // 原decode_next的实现
       using namespace zasm;
       Decoder d(machine_mode);
 
