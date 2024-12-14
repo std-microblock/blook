@@ -236,4 +236,15 @@ MemoryRange::find_one_remote(std::vector<uint8_t> pattern) const {
     return {};
   return res.ptr;
 }
+MemoryPatch Pointer::reassembly_thread_pause() {
+  return reassembly([](zasm::x86::Assembler a) {
+#if defined(BLOOK_ARCHITECTURE_X86_64) || defined(BLOOK_ARCHITECTURE_X86_32)
+    // EB FE: jmp $0
+    a.db(0xeb);
+    a.db(0xfe);
+#else
+#error "Unsupported architecture"
+#endif
+  });
+}
 } // namespace blook

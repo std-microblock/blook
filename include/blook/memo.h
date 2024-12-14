@@ -154,6 +154,8 @@ namespace blook {
         [[nodiscard]] MemoryPatch
         reassembly(std::function<void(zasm::x86::Assembler)>);
 
+        [[nodiscard]] MemoryPatch reassembly_thread_pause();
+
         std::optional<Function> guess_function(size_t max_scan_size = 50000);
 
         std::optional<Pointer> find_upwards(std::initializer_list<uint8_t> pattern,
