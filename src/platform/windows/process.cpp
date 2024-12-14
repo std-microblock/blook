@@ -14,13 +14,13 @@
 
 #ifdef _WIN32
 
-static std::optional<uint64_t> FindProcessByName(const std::string &name) {
+static std::optional<uint64_t> FindProcessByName(const std::string &name, size_t skip = 0) {
   PROCESSENTRY32 entry{.dwSize = sizeof(PROCESSENTRY32)};
 
   auto snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
   if (Process32First(snapshot, &entry)) {
     do {
-      if (std::string(entry.szExeFile) == name) {
+      if (std::string(entry.szExeFile) == name && (skip--) == 0) {
         return entry.th32ProcessID;
       }
     } while (Process32Next(snapshot, &entry));
@@ -122,9 +122,9 @@ Process::module(const std::string &name) {
   return {};
 }
 
-Process::Process(std::string name) {
+Process::Process(std::string name, size_t skip) {
 
-  const auto pid = FindProcessByName(name);
+  const auto pid = FindProcessByName(name, skip);
   if (pid.has_value()) {
     *this = Process(pid.value());
   } else {

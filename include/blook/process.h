@@ -46,7 +46,7 @@ class Process : public std::enable_shared_from_this<Process> {
   std::optional<Pointer> _memo{};
   std::optional<Allocator> _allocator{};
 
-  explicit Process(std::string name);
+  explicit Process(std::string name, size_t skip = 0);
   bool is_self_cached;
 protected:
   WIN_ONLY(HANDLE h = nullptr);
@@ -90,6 +90,8 @@ public:
   static std::shared_ptr<Process> attach(T &&...argv) {
     return std::shared_ptr<Process>(new Process(argv...));
   }
+
+
 };
 
 } // namespace blook
