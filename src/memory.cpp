@@ -138,10 +138,21 @@ std::optional<Pointer>
 Pointer::find_upwards(std::initializer_list<uint8_t> pattern,
                       size_t max_scan_size) {
   Pointer p = *this;
-  for (; p > this - max_scan_size; p -= 1) {
-    if (memcmp(pattern.begin(), (unsigned char *)p.data(), pattern.size()) ==
-        0) {
-      return p;
+
+  if (p.proc->is_self())
+    for (; p > this - max_scan_size; p -= 1) {
+      if (memcmp(pattern.begin(), (unsigned char *)p.data(), pattern.size()) ==
+          0) {
+        return p;
+      }
+    }
+
+  else {
+    auto data = p.read(nullptr, max_scan_size);
+    for (size_t i = data.size() - pattern.size(); i > 0; i--) {
+      if (memcmp(pattern.begin(), data.data() + i, pattern.size()) == 0) {
+        return p.sub(data.size() - i);
+      }
     }
   }
 
@@ -219,7 +230,8 @@ void *Pointer::read(std::span<uint8_t> dest) const {
 }
 std::optional<Pointer>
 MemoryRange::find_one_remote(std::vector<uint8_t> pattern) const {
-  auto res = std::search(this->begin(), this->end(), pattern.begin(), pattern.end());
+  auto res =
+      std::search(this->begin(), this->end(), pattern.begin(), pattern.end());
   if (res == this->end())
     return {};
   return res.ptr;

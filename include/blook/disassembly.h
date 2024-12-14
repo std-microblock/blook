@@ -120,8 +120,8 @@ private:
     const auto r = d.decode(buffer.data(), BufferSize, address);
     if (!r.hasValue()) {
       d = Decoder(machine_mode);
-      ptr += 1;
-      address += 1;
+      ptr += 4;
+      address += 4;
       return decode_next();
     }
 
