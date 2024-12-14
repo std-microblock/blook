@@ -118,6 +118,10 @@ namespace blook {
 
         operator size_t() const { return (size_t) this->_offset; }
 
+        inline Pointer absolute(const auto &t) const {
+            return {proc, (void *) t};
+        }
+
         Function as_function();
 
         [[nodiscard]] void *data() const;
@@ -271,6 +275,13 @@ namespace blook {
                 if (cache->buffer.empty() || /* !(cache->offset ∈ [ptr, ptr+cache->size]) */
                     cache->offset > ptr.offset() ||
                     cache->offset + cache->buffer.size() <= ptr.offset()) {
+                        /**
+                         *         cache = std::make_shared<CacheBuffer>(
+            ptr.read(nullptr, bufSize),
+            ptr.offset()
+        );
+                         * 
+                         */
                     cache->buffer.resize(std::min(bufSize, size));
                     if (!ptr.read(std::span(cache->buffer.data(), cache->buffer.size())))
                         throw std::runtime_error("Failed to read memory");
@@ -342,6 +353,13 @@ namespace blook {
 
         inline auto find_one(std::string_view sv) const {
             return find_one(std::vector<uint8_t>(sv.begin(), sv.end()));
+        }
+
+        std::optional<Pointer>
+        find_one_remote(std::vector<uint8_t> pattern) const;
+
+        inline auto find_one_remote (std::string_view sv) const {
+            return find_one_remote(std::vector<uint8_t>(sv.begin(), sv.end()));
         }
 
         std::optional<Pointer> find_xref(Pointer p);

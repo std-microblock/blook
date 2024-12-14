@@ -217,4 +217,11 @@ int32_t MemoryRange::crc32() const {
 void *Pointer::read(std::span<uint8_t> dest) const {
   return proc->read(dest.data(), (void *)((size_t)_offset), dest.size());
 }
+std::optional<Pointer>
+MemoryRange::find_one_remote(std::vector<uint8_t> pattern) const {
+  auto res = std::search(this->begin(), this->end(), pattern.begin(), pattern.end());
+  if (res == this->end())
+    return {};
+  return res.ptr;
+}
 } // namespace blook
