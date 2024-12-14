@@ -66,6 +66,21 @@ BLOOK_TEXT_SECTION uint8_t _getStackPointer[] = {
 
 #endif
 
+#ifdef _WIN32
+#ifdef BLOOK_ARCHITECTURE_X86_64
+BLOOK_TEXT_SECTION uint8_t get_peb_fn_buf[] = {
+    // mov rax, gs:[0x60];
+    // ret;
+    0x65, 0x48, 0x8B, 0x04, 0x25, 0x60, 0x00, 0x00, 0x00, 0xC3};
+#elif defined(BLOOK_ARCHITECTURE_X86_32)
+BLOOK_TEXT_SECTION uint8_t get_peb_fn_buf[] = {
+    // mov eax, fs:[0x30];
+    // ret;
+    64, A1, 30, 00, 00, 00, C3};
+#endif
+#endif
+getreg_fn_t getPEB = (getreg_fn_t)(void *)get_peb_fn_buf;
+
 getreg_fn_t getStackPointer = (getreg_fn_t)(void*)_getStackPointer;
 
 } // namespace utils

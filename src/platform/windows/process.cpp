@@ -165,10 +165,10 @@ Pointer Process::memo() {
 }
 
 void *Process::read(void *dest, void *addr, size_t size) const {
-  if (is_self()) {
-    std::memcpy(dest, addr, size);
-    return dest;
-  }
+  // if (is_self()) {
+  //   std::memcpy(dest, addr, size);
+  //   return dest;
+  // }
   if (ReadProcessMemory(this->h, (void *)(addr), dest, size, nullptr))
     return dest;
   std::println("Failed to read memory: {}", GetLastError());
@@ -180,9 +180,8 @@ std::optional<std::shared_ptr<Module>> Process::module() {
     return std::make_shared<Module>(shared_from_this(),
                                     (HMODULE)misc::get_current_module());
 
-  return {};
-}
-
+  return {}; 
+} 
 std::optional<std::shared_ptr<Module>> Process::process_module() {
   if (is_self())
     return std::make_shared<Module>(shared_from_this(),

@@ -29,6 +29,9 @@ extern getreg_fn_t getEDX;
 #endif
 
 extern getreg_fn_t getStackPointer;
+#ifdef _WIN32
+extern getreg_fn_t getPEB;
+#endif 
 
 std::size_t estimateCodeSize(const zasm::Program &program);
 
