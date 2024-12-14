@@ -14,7 +14,8 @@
 
 #ifdef _WIN32
 
-static std::optional<uint64_t> FindProcessByName(const std::string &name, size_t skip = 0) {
+static std::optional<uint64_t> FindProcessByName(const std::string &name,
+                                                 size_t skip = 0) {
   PROCESSENTRY32 entry{.dwSize = sizeof(PROCESSENTRY32)};
 
   auto snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -116,10 +117,18 @@ std::optional<std::vector<std::uint8_t>> Process::read(void *addr,
 std::optional<std::shared_ptr<Module>>
 Process::module(const std::string &name) {
   acquireDebugPrivilege();
-  const auto h = GetProcessBaseAddress(this->h, name);
-  if (h)
-    return Module::make(shared_from_this(), h);
-  return {};
+  if (is_self()) {
+    const auto h = GetProcessBaseAddress(this->h, name);
+    if (h)
+      return Module::make(shared_from_this(), h);
+    return {};
+  } else {
+    auto modules = this->modules();
+    auto it = modules.find(name);
+    if (it != modules.end())
+      return it->second;
+    return {};
+  }
 }
 
 Process::Process(std::string name, size_t skip) {
@@ -178,8 +187,8 @@ std::optional<std::shared_ptr<Module>> Process::module() {
     return std::make_shared<Module>(shared_from_this(),
                                     (HMODULE)misc::get_current_module());
 
-  return {}; 
-} 
+  return {};
+}
 std::optional<std::shared_ptr<Module>> Process::process_module() {
   if (is_self())
     return std::make_shared<Module>(shared_from_this(),
