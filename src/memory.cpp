@@ -214,4 +214,7 @@ int32_t MemoryRange::crc32() const {
   return crc ^ 0xFFFFFFFF;
 }
 
+void *Pointer::read(std::span<uint8_t> dest) const {
+  return proc->read(dest.data(), (void *)((size_t)_offset), dest.size());
+}
 } // namespace blook

@@ -20,13 +20,15 @@ void safe_wrapper_tester(int a, int b) {
 
 void test_wrap_function() {
   std::println("Creating function safe wrapper");
-  auto safe = blook::Function::into_safe_function_pointer(safe_wrapper_tester, false);
-  std::println("Safe wrapper created at: {}", (void*)safe);
+  auto safe =
+      blook::Function::into_safe_function_pointer(safe_wrapper_tester, false);
+  std::println("Safe wrapper created at: {}", (void *)safe);
   safe(1, 2);
 
   std::println("Creating function safe wrapper with thread safety");
-  auto safe2 = blook::Function::into_safe_function_pointer(safe_wrapper_tester, true);
-  std::println("Safe wrapper created at: {}", (void*)safe2);
+  auto safe2 =
+      blook::Function::into_safe_function_pointer(safe_wrapper_tester, true);
+  std::println("Safe wrapper created at: {}", (void *)safe2);
   safe2(1, 2);
 
   std::println("Testing function wrapping");
@@ -229,7 +231,7 @@ void test_exports() {
   auto proc = blook::Process::self();
   auto mod = proc->process_module().value();
   auto exports = mod->exports("f_test_exports").value();
-  assert(exports.data<void*>() == (void *)&f_test_exports);
+  assert(exports.data<void *>() == (void *)&f_test_exports);
   std::println("EAT parse passed");
 }
 
@@ -241,7 +243,7 @@ void test_qq_iter() {
   auto text = mod->section(".text").value();
 
   auto iter = text.disassembly();
-
+  auto timeStart = std::chrono::high_resolution_clock::now();
   int cnt = 0;
   int lastProgressReport = 0;
   for (const auto &data : iter) {
@@ -256,23 +258,31 @@ void test_qq_iter() {
   }
 
   std::cout << "Total bytes disassembled: " << cnt << std::endl;
+  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+                      std::chrono::high_resolution_clock::now() - timeStart)
+                      .count();
+  std::println("Disassembly took: {}ms | Speed: {} byte/second", duration,
+               (text.size() / (float)duration) * 1000
+
+  );
 }
 
 int main() {
 
   //   MessageBoxA(nullptr, "hi", "hi", 0);
 
-  try {
-    std::println("blook-test started");
-    test_wrap_function();
-    test_exports();
-    test_xref();
-    test_inline_hook();
-    test_disassembly_iterator();
-  } catch (std::exception &e) {
-    std::cerr << e.what();
-    abort();
-  }
+  // try {
+  std::println("blook-test started");
+  test_qq_iter();
+  test_wrap_function();
+  test_exports();
+  test_xref();
+  test_inline_hook();
+  test_disassembly_iterator();
+  // } catch (std::exception &e) {
+  // std::cerr << e.what();
+  // abort();
+  // }
   //   test_xref();
   //    try {
   //    test_disassembly_iterator();

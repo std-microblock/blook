@@ -102,6 +102,9 @@ namespace blook {
 
         std::optional<std::vector<uint8_t>> try_read(void *ptr, size_t size) const;
 
+        // read to
+        void *read(std::span<uint8_t> dest) const;
+
         explicit Pointer(std::shared_ptr<Process> proc);
 
         Pointer(std::shared_ptr<Process> proc, void *offset);
@@ -225,6 +228,8 @@ namespace blook {
             MemoryIteratorBuffered &operator=(MemoryIteratorBuffered &&) = default;
 
             MemoryIteratorBuffered(Pointer ptr, size_t size) : ptr(ptr), size(size) {}
+            MemoryIteratorBuffered(Pointer ptr, size_t size, std::shared_ptr<CacheBuffer> cache)
+                    : ptr(ptr), size(size), cache(cache) {}
 
             inline MemoryIteratorBuffered &operator+=(size_t t) {
                 if (t * step > size) {
@@ -239,7 +244,7 @@ namespace blook {
             }
 
             inline MemoryIteratorBuffered operator+(size_t t) {
-                return {ptr + t * step, std::max(size - t * step, (size_t) 0)};
+                return {ptr + t * step, std::max(size - t * step, (size_t) 0), cache};
             }
 
             inline MemoryIteratorBuffered &operator++() {
@@ -266,9 +271,9 @@ namespace blook {
                 if (cache->buffer.empty() || /* !(cache->offset ∈ [ptr, ptr+cache->size]) */
                     cache->offset > ptr.offset() ||
                     cache->offset + cache->buffer.size() <= ptr.offset()) {
-                    cache->buffer = std::move(ptr.read(0, 
-                        std::min(bufSize, size)
-                    ));
+                    cache->buffer.resize(std::min(bufSize, size));
+                    if (!ptr.read(std::span(cache->buffer.data(), cache->buffer.size())))
+                        throw std::runtime_error("Failed to read memory");
                     cache->offset = ptr.offset();
                 }
 

@@ -48,7 +48,7 @@ class Process : public std::enable_shared_from_this<Process> {
   std::optional<Allocator> _allocator{};
 
   explicit Process(std::string name);
-
+  bool is_self_cached;
 protected:
   WIN_ONLY(HANDLE h = nullptr);
   friend Module;
