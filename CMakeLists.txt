@@ -17,7 +17,9 @@ endif()
 set(BLOOK_SOURCE_WINDOWS src/platform/windows/process.cpp
     src/platform/windows/module.cpp
     src/platform/windows/memory.cpp
-    src/platform/windows/misc.cpp)
+    src/platform/windows/misc.cpp
+    src/platform/windows/thread.cpp
+    )
 
 set(BLOOK_SOURCE_LINUX src/platform/linux/memory.cpp)
 

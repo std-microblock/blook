@@ -8,5 +8,5 @@
 #include "blook/process.h"
 #include "blook/misc.h"
 #include "blook/disassembly.h"
-
+#include "blook/thread.h"
 #endif // BLOOK_BLOOK_H

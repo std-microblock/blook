@@ -267,13 +267,24 @@ void test_qq_iter() {
   );
 }
 
+void test_thread() {
+  auto proc = blook::Process::self();
+  auto threads = proc->threads();
+  for (const auto &thread : threads) {
+    std::cout << "Thread ID: " << thread.id << std::endl;
+    if(auto name = thread.name(); name.has_value())
+      std::cout << "Thread name: " << name.value() << std::endl;
+  }
+}
+
 int main() {
 
   //   MessageBoxA(nullptr, "hi", "hi", 0);
 
   // try {
   std::println("blook-test started");
-  test_qq_iter();
+  test_thread();
+  // test_qq_iter();
   test_wrap_function();
   test_exports();
   test_xref();

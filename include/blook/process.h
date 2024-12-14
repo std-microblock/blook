@@ -16,7 +16,7 @@
 
 namespace blook {
 class Pointer;
-
+struct Thread;
 class Process : public std::enable_shared_from_this<Process> {
 #ifdef _WIN32
 
@@ -83,6 +83,8 @@ public:
   Pointer memo();
 
   Allocator allocator();
+
+  std::vector<Thread> threads();
 
   template <class... T>
   static std::shared_ptr<Process> attach(T &&...argv) {

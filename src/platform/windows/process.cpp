@@ -1,9 +1,7 @@
 #include <print>
 #include <thread>
 
-#include "blook/misc.h"
-#include "blook/module.h"
-#include "blook/process.h"
+#include "blook/blook.h"
 
 #include "windows.h"
 
@@ -301,5 +299,17 @@ void Process::Allocator::deallocate(Pointer addr) {
         return;
     }
   }
+}
+std::vector<Thread> Process::threads() {
+  std::vector<Thread> threads;
+  THREADENTRY32 entry{.dwSize = sizeof(THREADENTRY32)};
+  auto snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+  if (Thread32First(snapshot, &entry)) {
+    do {
+      if (entry.th32OwnerProcessID == pid)
+        threads.emplace_back(entry.th32ThreadID, shared_from_this());
+    } while (Thread32Next(snapshot, &entry));
+  }
+  return threads;
 }
 } // namespace blook
