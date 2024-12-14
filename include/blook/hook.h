@@ -1,8 +1,10 @@
 #pragma once
+#include "blook/memo.h"
 #include "function.h"
 
 #include "memo.h"
 #include "utils.h"
+#include "zasm/x86/assembler.hpp"
 #include <optional>
 
 namespace blook {
@@ -54,5 +56,28 @@ public:
     hook_func = func;
     install(try_trampoline);
   }
+};
+
+class AnywhereHook {
+  std::optional<MemoryPatch> patch;
+  Pointer target;
+  void *hook_func = nullptr;
+  bool installed = false;
+public:
+  AnywhereHook(Pointer target);
+
+  void install(auto &&func) {
+    if (installed)
+      throw std::runtime_error("The hook was already installed.");
+    
+    hook_func = Function::into_safe_function_pointer(
+        std::forward<decltype(func)>(func));
+
+      patch = target.reassembly([](zasm::x86::Assembler a){
+        
+      });
+  }
+
+  void uninstall() {}
 };
 } // namespace blook

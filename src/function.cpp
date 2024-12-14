@@ -45,7 +45,7 @@ void *Function::into_safe_function_pointer(void *func, bool thread_safety) {
       // rax, rcx must be saved at the first place
       x86::rax, x86::rcx, x86::rbx, x86::rdx, x86::rsi,
       x86::rdi, x86::r8,  x86::r9,  x86::r10, x86::r11,
-      x86::r12, x86::r13, x86::r14, x86::r15, x86::rbp,
+      x86::r12, x86::r13, x86::r14, x86::r15, x86::rbp
 #elif defined(BLOOK_ARCHITECTURE_X86_32)
       x86::eax, x86::ecx, x86::ebx, x86::edx, x86::esi, x86::edi, x86::ebp,
 #endif
@@ -77,8 +77,7 @@ void *Function::into_safe_function_pointer(void *func, bool thread_safety) {
 #endif
 
        // saver struct:
-       // 0: origin content on [sp + size_t] as we are going to overwrite it
-       //    to store the pointer to the saver
+       // 0: reserved
        // 1: origin return address
        // 2: regs_to_save[0] --> the origin value of tmp; this have to be
        //    processed specially
@@ -90,7 +89,8 @@ void *Function::into_safe_function_pointer(void *func, bool thread_safety) {
 
        auto restoreSaverAddr = [&](bool after_call = false) {
          if (thread_safety) {
-           a.lea(tmp, word_ptr(sp, (magic_stack_offset - after_call) * sizeof(size_t)));
+           a.lea(tmp, word_ptr(sp, (magic_stack_offset - after_call) *
+                                       sizeof(size_t)));
          } else {
            a.mov(tmp, Imm((size_t)saver));
          }
@@ -114,15 +114,9 @@ void *Function::into_safe_function_pointer(void *func, bool thread_safety) {
 
        // save the return address
        auto returnAddr = word_ptr(sp, 0);
-       auto saverAddr = word_ptr(sp, sizeof(size_t));
+      //  auto saverAddr = word_ptr(sp, sizeof(size_t));
        a.mov(tmp2, returnAddr);
        a.mov(saverOffset(1), tmp2);
-
-       //  override the stack
-       a.mov(tmp2, saverAddr);
-       a.mov(saverOffset(0), tmp2);
-       restoreSaverAddr();
-       a.mov(saverAddr, tmp);
 
        // hook the return address
        auto restorerLabel = a.createLabel();
@@ -151,13 +145,6 @@ void *Function::into_safe_function_pointer(void *func, bool thread_safety) {
        // ---------- restorer ----------
        a.int3();
        a.bind(restorerLabel);
-
-       restoreSaverAddr(true);
-
-       // restore the stack we occupied
-       a.mov(tmp, saverOffset(0));
-       a.mov(word_ptr(sp, 0), tmp);
-
        restoreSaverAddr(true);
 
        // pushs the return address onto the stack

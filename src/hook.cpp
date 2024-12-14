@@ -107,4 +107,5 @@ void InlineHook::uninstall() {
   installed = false;
 }
 
+AnywhereHook::AnywhereHook(Pointer hook_func) : target(hook_func) {}
 } // namespace blook
