@@ -275,6 +275,14 @@ void test_thread() {
     if(auto name = thread.name(); name.has_value())
       std::cout << "Thread name: " << name.value() << std::endl;
   }
+  std::cout << "Total threads: " << threads.size() << std::endl;
+
+  std::cout << "Capturing context of second thread" << std::endl;
+  auto thread = threads[1];
+  auto ctx = thread.capture_context().value();
+  std::cout << "Context captured." << std::endl;
+  std::cout << "RAX: " << ctx.rax << std::endl;
+
 }
 
 int main() {

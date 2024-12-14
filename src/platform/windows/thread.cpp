@@ -2,7 +2,9 @@
 #include "windows.h"
 
 namespace blook {
-Thread::Thread(size_t id, std::shared_ptr<Process> proc) : id(id), proc(proc) {}
+Thread::Thread(size_t id, std::shared_ptr<Process> proc) : id(id), proc(proc) {
+  handle = (size_t)OpenThread(THREAD_ALL_ACCESS, false, id);
+}
 bool Thread::set_context(const ThreadContextCapture &ctx) {
   CONTEXT context{};
   context.ContextFlags = CONTEXT_FULL;
@@ -38,13 +40,14 @@ bool Thread::set_context(const ThreadContextCapture &ctx) {
   context.EFlags = ctx.eflags;
 #endif
 
-  return SetThreadContext((HANDLE)id, &context);
+  return SetThreadContext((HANDLE)handle.value(), &context);
 };
 std::optional<Thread::ThreadContextCapture> Thread::capture_context() {
+  bool need_resume = suspend();
   ThreadContextCapture ctx;
   CONTEXT context{};
   context.ContextFlags = CONTEXT_FULL;
-  if (!GetThreadContext((HANDLE)id, &context))
+  if (!GetThreadContext((HANDLE)handle.value(), &context))
     return {};
 #ifdef BLOOK_ARCHITECTURE_X86_64
   ctx.rax = context.Rax;
@@ -77,6 +80,8 @@ std::optional<Thread::ThreadContextCapture> Thread::capture_context() {
   ctx.eip = context.Eip;
   ctx.eflags = context.EFlags;
 #endif
+  if (need_resume)
+    resume();
   return ctx;
 };
 size_t Thread::stack(size_t offset) {
@@ -89,12 +94,20 @@ size_t Thread::stack(size_t offset) {
 #endif
                                    + offset);
 }
-bool Thread::resume() { return ResumeThread((HANDLE)id) != -1; }
-bool Thread::suspend() { return SuspendThread((HANDLE)id) != -1; }
+bool Thread::resume() { return ResumeThread((HANDLE)handle.value()) != -1; }
+bool Thread::suspend() { return SuspendThread((HANDLE)handle.value()) != -1; }
+
 std::optional<std::string> Thread::name() const {
-    PWSTR name;
-    if (GetThreadDescription((HANDLE)id, &name) && name)
-        return std::filesystem::path(name).string();
-    return {};
+  PWSTR name;
+  if (GetThreadDescription((HANDLE)handle.value(), &name) && name)
+    return std::filesystem::path(name).string();
+  return {};
 }
+bool Thread::is_suspended() {
+  auto suspended = suspend();
+  if (!suspended)
+    return true;
+  resume();
+  return false;
+};
 } // namespace blook

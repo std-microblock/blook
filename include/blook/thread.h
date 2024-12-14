@@ -11,6 +11,7 @@ class Process;
 struct Thread : public std::enable_shared_from_this<Thread> {
   size_t id;
   std::shared_ptr<Process> proc;
+  std::optional<size_t> handle;
   Thread(size_t id, std::shared_ptr<Process> proc);
   std::optional<std::string> name() const;
 
@@ -26,10 +27,12 @@ struct Thread : public std::enable_shared_from_this<Thread> {
   };
 
   std::optional<ThreadContextCapture> capture_context();
+  inline auto context() { return capture_context(); }
   bool set_context(const ThreadContextCapture &ctx);
 
   size_t stack(size_t offset);
   bool suspend();
   bool resume();
+  bool is_suspended();
 };
 } // namespace blook
