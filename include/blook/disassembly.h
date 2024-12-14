@@ -29,112 +29,128 @@ public:
 };
 
 template <typename Range> class DisassembleRange {
-  static constexpr int BufferSize = 30;
-  Pointer address = 0;
-  Pointer address_begin = 0;
+public:
+  template <typename Range> class DisassembleIteratorR;
+
+private:
+  using Iterator = DisassembleIteratorR<Range>;
+  Pointer address_begin;
   Range range;
-  using Iter = decltype(range.begin());
-  Iter ptr;
-  std::optional<InstructionCtx> current_value;
-  zasm::MachineMode machine_mode = zasm::MachineMode::AMD64;
-  bool over = false;
-  std::vector<uint8_t> buffer{BufferSize};
+  zasm::MachineMode machine_mode;
 
 public:
-  using iterator = DisassembleRange<Range>;
-  using const_iterator = iterator;
-  using iterator_tag = std::input_iterator_tag;
+  using iterator = Iterator;
+  using const_iterator = Iterator;
   using value_type = InstructionCtx;
   using difference_type = std::ptrdiff_t;
-  using pointer = value_type *;
   using reference = value_type &;
+  using const_reference = const value_type &;
 
-  DisassembleRange() = default;
-
-  DisassembleRange(const DisassembleRange &) = default;
-
-  DisassembleRange(DisassembleRange &&) = default;
-
-  DisassembleRange &operator=(const DisassembleRange &) = default;
-
-  DisassembleRange &operator=(DisassembleRange &&) = default;
-
-  explicit DisassembleRange(
-      Range range, const Pointer &address,
-      zasm::MachineMode machine_mode = utils::compileMachineMode())
-      : address(address), address_begin(address), range(range),
-        machine_mode(machine_mode) {
-    ptr = range.begin();
-    decode_next();
-  }
-
-  iterator &operator++() {
-    decode_next();
-    return (*this);
-  }
-
-  iterator operator++(int) {
-    iterator retval = *this;
-    ++(*this);
-    return retval;
-  }
-
-  value_type const &operator*() const { return *current_value; }
+  DisassembleRange(Range range, const Pointer &address,
+                   zasm::MachineMode machine_mode = utils::compileMachineMode())
+      : address_begin(address), range(range), machine_mode(machine_mode) {}
 
   [[nodiscard]] iterator begin() const {
     return iterator{range, address_begin, machine_mode};
   }
 
   [[nodiscard]] iterator end() const {
-    auto th = *this;
-    th.over = true;
-    th.current_value = {};
-    return th;
+    return iterator{range, address_begin, machine_mode, true};
   }
+  template <typename Range> class DisassembleIteratorR {
+    static constexpr int BufferSize = 30;
+    Pointer address = 0;
+    Range range;
+    using Iter = decltype(std::declval<Range>().begin());
+    Iter ptr;
+    std::optional<InstructionCtx> current_value;
+    zasm::MachineMode machine_mode;
+    bool over = false;
+    std::vector<uint8_t> buffer{BufferSize};
+    Iter range_end;
 
-  bool operator==(const iterator &other) const {
-    return ((other.over && this->over) ||
-            (other.address == this->address && other.over == this->over));
-  }
+  public:
+    using iterator_category = std::input_iterator_tag;
+    using value_type = InstructionCtx;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type &;
 
-private:
-  Iter range_end = range.end();
-  void decode_next() {
-    using namespace zasm;
-    Decoder d(machine_mode);
+    DisassembleIteratorR() = default;
+    DisassembleIteratorR(const DisassembleIteratorR &) = default;
+    DisassembleIteratorR(DisassembleIteratorR &&) = default;
+    DisassembleIteratorR &operator=(const DisassembleIteratorR &) = default;
+    DisassembleIteratorR &operator=(DisassembleIteratorR &&) = default;
+    
 
-    if (ptr == range_end) {
-      over = true;
-      return;
+    explicit DisassembleIteratorR(Range range, const Pointer &address,
+                                  zasm::MachineMode machine_mode,
+                                  bool is_end = false)
+        : address(address), range(range), machine_mode(machine_mode),
+          over(is_end) {
+      ptr = range.begin();
+      range_end = range.end();
+      if (!over) {
+        decode_next();
+      }
     }
 
-    if (over) {
-      current_value = {};
-      return;
+    DisassembleIteratorR &operator++() {
+      decode_next();
+      return *this;
     }
 
-    // Copy the buffer
-    auto maxSize = (size_t)30; // (size_t)std::distance(ptr, range.end());
-    buffer.resize(std::min(maxSize, (size_t)BufferSize));
-    std::copy(ptr, ptr + buffer.size(), buffer.begin());
-    const auto r = d.decode(buffer.data(), BufferSize, address);
-    if (!r.hasValue()) {
-      d = Decoder(machine_mode);
-      ptr += 4;
-      address += 4;
-      return decode_next();
+    DisassembleIteratorR operator++(int) {
+      auto tmp = *this;
+      ++(*this);
+      return tmp;
     }
 
-    const auto size = r->getLength();
-    ptr += size;
-    address += size;
-    current_value = InstructionCtx{r.value(), address};
+    value_type const &operator*() const { return *current_value; }
 
-    if (ptr == range_end) {
-      over = true;
-      return;
+    bool operator==(const DisassembleIteratorR &other) const {
+      return ((other.over && this->over) ||
+              (other.address == this->address && other.over == this->over));
     }
-  }
+
+  private:
+    void decode_next() {
+      // 原decode_next的实现
+      using namespace zasm;
+      Decoder d(machine_mode);
+
+      if (ptr == range_end) {
+        over = true;
+        return;
+      }
+
+      if (over) {
+        current_value = {};
+        return;
+      }
+
+      auto maxSize = (size_t)30;
+      buffer.resize(std::min(maxSize, (size_t)BufferSize));
+      std::copy(ptr, ptr + buffer.size(), buffer.begin());
+      const auto r = d.decode(buffer.data(), BufferSize, address);
+      if (!r.hasValue()) {
+        d = Decoder(machine_mode);
+        ptr += 4;
+        address += 4;
+        return decode_next();
+      }
+
+      const auto size = r->getLength();
+      ptr += size;
+      address += size;
+      current_value = InstructionCtx{r.value(), address};
+
+      if (ptr == range_end) {
+        over = true;
+        return;
+      }
+    }
+  };
 };
 
 using DisassembleIterator = DisassembleRange<std::span<uint8_t>>;
