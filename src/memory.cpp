@@ -218,11 +218,21 @@ consteval std::array<uint32_t, 256> make_crc32_table() {
 constinit std::array<uint32_t, 256> crc32_table = make_crc32_table();
 
 int32_t MemoryRange::crc32() const {
-  uint32_t crc = 0xFFFFFFFF;
-  for (size_t i = 0; i < _size; i++) {
-    crc = crc32_table[(crc ^ *((uint8_t *)_offset)) & 0xFF] ^ (crc >> 8);
+  if (proc->is_self()) {
+    uint32_t crc = 0xFFFFFFFF;
+    for (size_t i = 0; i < _size; i++) {
+      crc = crc32_table[(crc ^ *((uint8_t *)_offset)) & 0xFF] ^ (crc >> 8);
+    }
+    return crc ^ 0xFFFFFFFF;
+  } else {
+    auto iter = this->begin();
+    uint32_t crc = 0xFFFFFFFF;
+    for (size_t i = 0; i < _size; i++) {
+      crc = crc32_table[(crc ^ *iter) & 0xFF] ^ (crc >> 8);
+      iter++;
+    }
+    return crc ^ 0xFFFFFFFF;
   }
-  return crc ^ 0xFFFFFFFF;
 }
 
 void *Pointer::read(std::span<uint8_t> dest) const {
