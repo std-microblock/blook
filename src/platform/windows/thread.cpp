@@ -110,4 +110,12 @@ bool Thread::is_suspended() {
   resume();
   return false;
 };
+bool Thread::terminate() {
+  return TerminateThread((HANDLE)handle.value(), 0) != 0;
+}
+bool Thread::exists() {
+  DWORD exitCode;
+  return GetExitCodeThread((HANDLE)handle.value(), &exitCode) && exitCode ==
+                                                                  STILL_ACTIVE;
+}
 } // namespace blook
