@@ -281,7 +281,7 @@ std::optional<Pointer> Process::Allocator::allocate(size_t size,
 
   constexpr auto pageSize = 4096;
 
-  auto ptr = proc->memo().malloc(size, nearAddr);
+  auto ptr = proc->memo().malloc(size, nearAddr).data();
 
   if (!ptr)
     return {};
