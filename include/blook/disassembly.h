@@ -26,11 +26,18 @@ public:
   auto operator->() const { return &instr; }
 
   [[nodiscard]] std::vector<Pointer> xrefs() const;
+
+  [[nodiscard]] std::string dump() const;
+
+  friend std::ostream &operator<<(std::ostream &os, const InstructionCtx &ctx) {
+    os << ctx.dump();
+    return os;
+  }
 };
 
 template <typename Range> class DisassembleRange {
 public:
-  template <typename Range> class DisassembleIteratorR;
+  template <typename R> class DisassembleIteratorR;
 
 private:
   using Iterator = DisassembleIteratorR<Range>;
@@ -57,7 +64,7 @@ public:
   [[nodiscard]] iterator end() const {
     return iterator{range, address_begin, machine_mode, true};
   }
-  template <typename Range> class DisassembleIteratorR {
+  template <typename R> class DisassembleIteratorR {
     static constexpr int BufferSize = 30;
     Pointer address = 0;
     Range range;

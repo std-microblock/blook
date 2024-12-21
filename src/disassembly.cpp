@@ -3,7 +3,11 @@
 //
 
 #include "blook/disassembly.h"
+#include "zasm/formatter/formatter.hpp"
+#include <iomanip>
 #include <iostream>
+#include <sstream>
+#include <zasm/zasm.hpp>
 
 namespace blook::disasm {
 std::vector<Pointer> InstructionCtx::xrefs() const {
@@ -26,5 +30,10 @@ std::vector<Pointer> InstructionCtx::xrefs() const {
   }
 
   return ptrs;
+}
+
+std::string InstructionCtx::dump() const {
+  auto inst = instr.getInstruction();
+  return zasm::formatter::toString(&inst, zasm::formatter::Options::HexOffsets);
 }
 } // namespace blook::disasm
