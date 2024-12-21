@@ -34,6 +34,8 @@ std::vector<Pointer> InstructionCtx::xrefs() const {
 
 std::string InstructionCtx::dump() const {
   auto inst = instr.getInstruction();
-  return zasm::formatter::toString(&inst, zasm::formatter::Options::HexOffsets);
+  return zasm::formatter::toString(&inst,
+                                   zasm::formatter::Options::HexOffsets |
+                                       zasm::formatter::Options::HexImmediates);
 }
 } // namespace blook::disasm
