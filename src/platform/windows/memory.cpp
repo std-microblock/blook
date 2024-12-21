@@ -17,7 +17,7 @@ ScopedSetMemoryRWX::~ScopedSetMemoryRWX() {
 }
 
 void *Pointer::malloc_rwx(size_t size) {
-  return Process::self()->memo().malloc(size, Pointer::MemoryProtection::rwx);
+  return Process::self()->memo().malloc(size, Pointer::MemoryProtection::rwx).data();
 }
 
 void Pointer::protect_rwx(void *p, size_t size) {
@@ -27,10 +27,10 @@ void Pointer::protect_rwx(void *p, size_t size) {
 
 void *Pointer::malloc_near_rwx(void *targetAddr, size_t size) {
   return Process::self()->memo().malloc(size, targetAddr,
-                                        MemoryProtection::rwx);
+                                        MemoryProtection::rwx).data();
 }
 
-void *Pointer::malloc(size_t size, Pointer::MemoryProtection protection) {
+Pointer Pointer::malloc(size_t size, Pointer::MemoryProtection protection) {
   LPVOID lpSpace = (LPVOID)VirtualAllocEx(
       proc->h, NULL, size, MEM_RESERVE | MEM_COMMIT,
       ((protection == MemoryProtection::Read)        ? PAGE_READONLY
@@ -39,13 +39,13 @@ void *Pointer::malloc(size_t size, Pointer::MemoryProtection protection) {
            ? PAGE_EXECUTE_READWRITE
        : (protection == MemoryProtection::ReadExecute) ? PAGE_EXECUTE_READ
                                                        : PAGE_NOACCESS));
-  return lpSpace;
+  return absolute(lpSpace);
 }
 
 Pointer::Pointer(std::shared_ptr<Process> proc) : proc(std::move(proc)) {}
 
-void *Pointer::malloc(size_t size, void *nearby,
-                      Pointer::MemoryProtection protection) {
+Pointer Pointer::malloc(size_t size, void *nearby,
+                        Pointer::MemoryProtection protection) {
   const auto flag =
       ((protection == MemoryProtection::Read)        ? PAGE_READONLY
        : (protection == MemoryProtection::ReadWrite) ? PAGE_READWRITE
@@ -76,17 +76,17 @@ void *Pointer::malloc(size_t size, void *nearby,
     bool needsExit = highAddr > maxAddr && lowAddr < minAddr;
 
     if (highAddr < maxAddr) {
-      void *outAddr =
-          VirtualAlloc((void *)highAddr, size, MEM_COMMIT | MEM_RESERVE, flag);
+      void *outAddr = VirtualAllocEx(proc->h, (void *)highAddr, size,
+                                     MEM_COMMIT | MEM_RESERVE, flag);
       if (outAddr)
-        return outAddr;
+        return absolute(outAddr);
     }
 
     if (lowAddr > minAddr) {
-      void *outAddr =
-          VirtualAlloc((void *)lowAddr, size, MEM_COMMIT | MEM_RESERVE, flag);
+      void *outAddr = VirtualAllocEx(proc->h, (void *)lowAddr, size,
+                                     MEM_COMMIT | MEM_RESERVE, flag);
       if (outAddr != nullptr)
-        return outAddr;
+        return absolute(outAddr);
     }
 
     pageOffset++;
@@ -96,7 +96,7 @@ void *Pointer::malloc(size_t size, void *nearby,
     }
   }
 
-  return nullptr;
+  return absolute(nullptr);
 }
 
 std::optional<Module> Pointer::owner_module() {

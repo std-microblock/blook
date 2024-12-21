@@ -15,367 +15,362 @@
 #include <vector>
 
 namespace blook {
-    class Process;
+class Process;
 
-    class Function;
+class Function;
 
-    class MemoryRange;
+class MemoryRange;
 
-    class MemoryPatch;
+class MemoryPatch;
 
-    class Module;
-    namespace disasm {
-        template<typename Range>
-        class DisassembleRange;
+class Module;
+namespace disasm {
+template <typename Range> class DisassembleRange;
 
-        using DisassembleIterator = DisassembleRange<std::span<uint8_t>>;
-    } // namespace disasm
+using DisassembleIterator = DisassembleRange<std::span<uint8_t>>;
+} // namespace disasm
 
-    class Pointer {
+class Pointer {
 
-    protected:
-        size_t _offset = 0;
-        std::shared_ptr<Process> proc = nullptr;
-        friend MemoryPatch;
+protected:
+  size_t _offset = 0;
+  std::shared_ptr<Process> proc = nullptr;
+  friend MemoryPatch;
 
-    public:
-        static void *malloc_rwx(size_t size);
+public:
+  static void *malloc_rwx(size_t size);
 
-        static void protect_rwx(void *p, size_t size);
+  static void protect_rwx(void *p, size_t size);
 
-        static void *malloc_near_rwx(void *near, size_t size);
+  static void *malloc_near_rwx(void *near, size_t size);
 
-        bool operator==(const Pointer &other) const = default;
+  bool operator==(const Pointer &other) const = default;
 
-        enum class MemoryProtection {
-            Read = 0x0001,
-            Write = 0x0010,
-            Execute = 0x0100,
-            ReadWrite = Read | Write,
-            ReadWriteExecute = Read | Write | Execute,
-            ReadExecute = Read | Execute,
-            rw = ReadWrite,
-            rwx = ReadWriteExecute,
-            rx = ReadExecute
-        };
+  enum class MemoryProtection {
+    Read = 0x0001,
+    Write = 0x0010,
+    Execute = 0x0100,
+    ReadWrite = Read | Write,
+    ReadWriteExecute = Read | Write | Execute,
+    ReadExecute = Read | Execute,
+    rw = ReadWrite,
+    rwx = ReadWriteExecute,
+    rx = ReadExecute
+  };
 
-        void *malloc(size_t size, void *near,
-                     MemoryProtection protection = MemoryProtection::rw);
+  Pointer malloc(size_t size, void *near,
+                 MemoryProtection protection = MemoryProtection::rw);
 
-        void *malloc(size_t size, MemoryProtection protection = MemoryProtection::rw);
+  Pointer malloc(size_t size,
+                 MemoryProtection protection = MemoryProtection::rw);
 
-        std::vector<uint8_t> read(void *ptr, size_t size) const;
+  std::vector<uint8_t> read(void *ptr, size_t size) const;
 
-        std::span<uint8_t> read_leaked(void *ptr, size_t size);
+  std::span<uint8_t> read_leaked(void *ptr, size_t size);
 
+  std::expected<void, std::string> write(void *addr, std::span<uint8_t>) const;
 
-        std::expected<void, std::string> write(void *addr, std::span<uint8_t>) const;
+  template <typename Struct>
+  inline std::optional<Struct *> read_leaked(void *ptr = nullptr) {
+    const auto val = read_leaked(ptr, sizeof(Struct));
+    return reinterpret_cast<Struct *>(val.data());
+  }
 
-        template<typename Struct>
-        inline std::optional<Struct *> read_leaked(void *ptr = nullptr) {
-            const auto val = read_leaked(ptr, sizeof(Struct));
-            return reinterpret_cast<Struct *>(val.data());
-        }
+  template <typename Struct>
+  [[nodiscard]] inline Struct read(size_t ptr = 0) const {
+    auto data = try_read((void *)ptr, sizeof(Struct));
+    if (!data.has_value()) {
+      throw std::runtime_error("Failed to read memory");
+    }
+    return *reinterpret_cast<Struct *>(data.value().data());
+  }
 
-        template<typename Struct>
-        [[nodiscard]] inline Struct read(size_t ptr = 0) const {
-            auto data = try_read((void *) ptr, sizeof(Struct));
-            if (!data.has_value()) {
-                throw std::runtime_error("Failed to read memory");
-            }
-            return *reinterpret_cast<Struct *>(data.value().data());
-        }
+  template <typename Struct>
+  [[nodiscard]] inline auto write(Struct data, size_t ptr = 0) {
+    return write((void *)ptr, std::span((uint8_t *)&data, sizeof(Struct)));
+  }
 
-        template<typename Struct>
-        [[nodiscard]] inline auto write(Struct data, size_t ptr = 0) {
-            return write((void *) ptr, std::span((uint8_t *) &data, sizeof(Struct)));
-        }
+  template <typename Struct>
+  [[nodiscard]] inline std::optional<Struct> try_read(size_t ptr = 0) const {
+    auto data = try_read((void *)ptr, sizeof(Struct));
+    if (!data.has_value()) {
+      return {};
+    }
+    return *reinterpret_cast<Struct *>(data.value().data());
+  }
 
-        template<typename Struct>
-        [[nodiscard]] inline std::optional<Struct> try_read(size_t ptr = 0) const {
-            auto data = try_read((void *) ptr, sizeof(Struct));
-            if (!data.has_value()) {
-                return {};
-            }
-            return *reinterpret_cast<Struct *>(data.value().data());
-        }
+  std::optional<std::vector<uint8_t>> try_read(void *ptr, size_t size) const;
 
-        std::optional<std::vector<uint8_t>> try_read(void *ptr, size_t size) const;
+  // read to
+  void *read(std::span<uint8_t> dest) const;
 
-        // read to
-        void *read(std::span<uint8_t> dest) const;
+  explicit Pointer(std::shared_ptr<Process> proc);
 
-        explicit Pointer(std::shared_ptr<Process> proc);
+  Pointer(std::shared_ptr<Process> proc, void *offset);
 
-        Pointer(std::shared_ptr<Process> proc, void *offset);
+  Pointer(std::shared_ptr<Process> proc, size_t offset);
 
-        Pointer(std::shared_ptr<Process> proc, size_t offset);
+  // Construct a pointer within current process.
+  Pointer(void *offset);
 
-        // Construct a pointer within current process.
-        Pointer(void *offset);
+  Pointer() = default;
 
-        Pointer() = default;
+  operator size_t() const { return (size_t)this->_offset; }
 
-        operator size_t() const { return (size_t) this->_offset; }
+  inline Pointer absolute(const auto &t) const { return {proc, (void *)t}; }
 
-        inline Pointer absolute(const auto &t) const {
-            return {proc, (void *) t};
-        }
+  Function as_function();
 
-        Function as_function();
+  [[nodiscard]] void *data() const;
 
-        [[nodiscard]] void *data() const;
+  [[nodiscard]] inline size_t offset() const { return _offset; }
 
-        [[nodiscard]] inline size_t offset() const {
-            return _offset;
-        }
+  // Pointer operations
+  inline Pointer add(const auto &t) const {
+    return {proc, (void *)(_offset + (size_t)t)};
+  }
 
-        // Pointer operations
-        inline Pointer add(const auto &t) const {
-            return {proc, (void *) (_offset + (size_t) t)};
-        }
+  inline Pointer sub(const auto &t) const {
+    return {proc, (void *)(_offset - (size_t)t)};
+  }
 
-        inline Pointer sub(const auto &t) const {
-            return {proc, (void *) (_offset - (size_t) t)};
-        }
+  inline auto operator+(const auto &t) { return this->add(t); }
 
-        inline auto operator+(const auto &t) { return this->add(t); }
+  inline auto operator-(const auto &t) { return this->sub(t); }
 
-        inline auto operator-(const auto &t) { return this->sub(t); }
+  inline auto operator+=(const auto &t) { this->_offset += (size_t)t; };
 
-        inline auto operator+=(const auto &t) { this->_offset += (size_t) t; };
+  inline auto operator-=(const auto &t) { this->_offset -= (size_t)t; };
 
-        inline auto operator-=(const auto &t) { this->_offset -= (size_t) t; };
+  inline auto operator<=>(const Pointer &o) const {
+    return this->_offset <=> o._offset;
+  }
 
-        inline auto operator<=>(const Pointer &o) const {
-            return this->_offset <=> o._offset;
-        }
+  [[nodiscard]] MemoryPatch
+      reassembly(std::function<void(zasm::x86::Assembler)>);
 
-        [[nodiscard]] MemoryPatch
-        reassembly(std::function<void(zasm::x86::Assembler)>);
+  [[nodiscard]] MemoryPatch reassembly_thread_pause();
 
-        [[nodiscard]] MemoryPatch reassembly_thread_pause();
+  std::optional<Function> guess_function(size_t max_scan_size = 50000);
 
-        std::optional<Function> guess_function(size_t max_scan_size = 50000);
+  std::optional<Pointer> find_upwards(std::initializer_list<uint8_t> pattern,
+                                      size_t max_scan_size = 50000);
 
-        std::optional<Pointer> find_upwards(std::initializer_list<uint8_t> pattern,
-                                            size_t max_scan_size = 50000);
+  std::optional<Module> owner_module();
 
-        std::optional<Module> owner_module();
+  // ptr.offsets(0x1f, 0x3f) equals to (*(ptr + 0x1f) + 0x3f)
+  std::optional<Pointer> offsets(const std::vector<size_t> &offsets,
+                                 size_t scale = sizeof(void *));
 
-        // ptr.offsets(0x1f, 0x3f) equals to (*(ptr + 0x1f) + 0x3f)
-        std::optional<Pointer> offsets(const std::vector<size_t> &offsets,
-                                       size_t scale = sizeof(void *));
+  MemoryRange range_to(Pointer ptr);
 
-        MemoryRange range_to(Pointer ptr);
+  MemoryRange range_size(std::size_t size);
+};
 
-        MemoryRange range_size(std::size_t size);
+struct ScopedSetMemoryRWX {
+  void *ptr;
+  size_t size;
+  void *old_protect;
+
+  ScopedSetMemoryRWX(void *ptr, size_t size);
+
+  ~ScopedSetMemoryRWX();
+};
+
+class MemoryPatch {
+  Pointer ptr;
+  std::vector<uint8_t> buffer;
+  bool patched = false;
+
+public:
+  MemoryPatch(Pointer ptr, std::vector<uint8_t> buffer);
+
+  void swap();
+
+  bool patch();
+
+  bool restore();
+};
+
+class MemoryRange : public Pointer {
+  size_t _size = 0;
+
+public:
+  MemoryRange(std::shared_ptr<Process> proc, void *offset, size_t size);
+
+  MemoryRange() = default;
+
+  MemoryRange(const MemoryRange &other) = default;
+
+  MemoryRange &operator=(const MemoryRange &other) = default;
+
+  [[nodiscard]] size_t size() const { return _size; }
+
+  template <size_t bufSize, size_t step = 1> struct MemoryIteratorBuffered {
+    Pointer ptr = nullptr;
+    size_t size = 1;
+
+    struct CacheBuffer {
+      std::vector<uint8_t> buffer{};
+      size_t offset = 0;
     };
 
-    struct ScopedSetMemoryRWX {
-        void *ptr;
-        size_t size;
-        void *old_protect;
+    std::shared_ptr<CacheBuffer> cache = std::make_shared<CacheBuffer>();
 
-        ScopedSetMemoryRWX(void *ptr, size_t size);
+    MemoryIteratorBuffered() = default;
 
-        ~ScopedSetMemoryRWX();
-    };
+    MemoryIteratorBuffered(const MemoryIteratorBuffered &) = default;
 
-    class MemoryPatch {
-        Pointer ptr;
-        std::vector<uint8_t> buffer;
-        bool patched = false;
+    MemoryIteratorBuffered(MemoryIteratorBuffered &&) = default;
 
-    public:
-        MemoryPatch(Pointer ptr, std::vector<uint8_t> buffer);
+    MemoryIteratorBuffered &operator=(const MemoryIteratorBuffered &) = default;
 
-        void swap();
+    MemoryIteratorBuffered &operator=(MemoryIteratorBuffered &&) = default;
 
-        bool patch();
+    MemoryIteratorBuffered(Pointer ptr, size_t size) : ptr(ptr), size(size) {}
+    MemoryIteratorBuffered(Pointer ptr, size_t size,
+                           std::shared_ptr<CacheBuffer> cache)
+        : ptr(ptr), size(size), cache(cache) {}
 
-        bool restore();
-    };
+    inline MemoryIteratorBuffered &operator+=(size_t t) {
+      if (t * step > size) {
+        this->ptr = ptr + size;
+        size = 0;
+      } else {
+        ptr += t * step;
+        size -= t * step;
+      }
 
-    class MemoryRange : public Pointer {
-        size_t _size = 0;
+      return *this;
+    }
 
-    public:
-        MemoryRange(std::shared_ptr<Process> proc, void *offset, size_t size);
+    inline MemoryIteratorBuffered operator+(size_t t) {
+      return {ptr + t * step, std::max(size - t * step, (size_t)0), cache};
+    }
 
-        MemoryRange() = default;
+    inline MemoryIteratorBuffered &operator++() {
+      ptr += step;
+      size -= step;
+      return *this;
+    }
 
-        MemoryRange(const MemoryRange &other) = default;
+    inline MemoryIteratorBuffered operator++(int) {
+      auto tmp = *this;
+      ++(*this);
+      return tmp;
+    }
 
-        MemoryRange &operator=(const MemoryRange &other) = default;
+    inline bool operator==(const MemoryIteratorBuffered &other) const {
+      return ptr == other.ptr || (size == 0 && other.size == 0);
+    }
 
-        [[nodiscard]] size_t size() const { return _size; }
+    inline bool operator!=(const MemoryIteratorBuffered &other) const {
+      return !(*this == other);
+    }
 
-        template<size_t bufSize, size_t step = 1>
-        struct MemoryIteratorBuffered {
-            Pointer ptr = nullptr;
-            size_t size = 1;
+    inline uint8_t operator*() {
+      if (cache->buffer
+              .empty() || /* !(cache->offset ∈ [ptr, ptr+cache->size]) */
+          cache->offset > ptr.offset() ||
+          cache->offset + cache->buffer.size() <= ptr.offset()) {
+        /**
+         *         cache = std::make_shared<CacheBuffer>(
+ptr.read(nullptr, bufSize),
+ptr.offset()
+);
+         *
+         */
+        cache->buffer.resize(std::min(bufSize, size));
+        if (!ptr.read(std::span(cache->buffer.data(), cache->buffer.size())))
+          throw std::runtime_error("Failed to read memory");
+        cache->offset = ptr.offset();
+      }
 
-            struct CacheBuffer {
-                std::vector<uint8_t> buffer{};
-                size_t offset = 0;
-            };
+      return cache->buffer[ptr.offset() - cache->offset];
+    }
 
-            std::shared_ptr<CacheBuffer> cache = std::make_shared<CacheBuffer>();
+    using value_type = uint8_t;
+    using difference_type = std::ptrdiff_t;
+    using pointer = uint8_t *;
+    using reference = uint8_t &;
+    using iterator_category = std::input_iterator_tag;
+  };
 
-            MemoryIteratorBuffered() = default;
+  using MemoryIterator = MemoryIteratorBuffered<1024 * 4>;
 
-            MemoryIteratorBuffered(const MemoryIteratorBuffered &) = default;
+  using iterator = MemoryIterator;
+  using const_iterator = MemoryIterator;
 
-            MemoryIteratorBuffered(MemoryIteratorBuffered &&) = default;
+  bool operator==(const MemoryRange &other) const = default;
 
-            MemoryIteratorBuffered &operator=(const MemoryIteratorBuffered &) = default;
+  [[nodiscard]] MemoryIterator begin() const {
+    return {*static_cast<const Pointer *>(this), _size};
+  }
 
-            MemoryIteratorBuffered &operator=(MemoryIteratorBuffered &&) = default;
+  [[nodiscard]] MemoryIterator end() const {
+    return {(*static_cast<const Pointer *>(this)).add(_size), 0};
+  }
 
-            MemoryIteratorBuffered(Pointer ptr, size_t size) : ptr(ptr), size(size) {}
-            MemoryIteratorBuffered(Pointer ptr, size_t size, std::shared_ptr<CacheBuffer> cache)
-                    : ptr(ptr), size(size), cache(cache) {}
+  template <class Scanner = memory_scanner::mb_kmp>
+  inline std::optional<Pointer>
+  find_one(const std::vector<uint8_t> pattern) const {
+    const auto span = std::span<uint8_t>((uint8_t *)_offset, _size);
+    std::optional<size_t> res = Scanner::searchOne(span, pattern);
+    return res.and_then([this](const auto val) {
+      return std::optional<Pointer>(Pointer(this->proc, this->_offset + val));
+    });
+  }
 
-            inline MemoryIteratorBuffered &operator+=(size_t t) {
-                if (t * step > size) {
-                    this->ptr = ptr + size;
-                    size = 0;
-                } else {
-                    ptr += t * step;
-                    size -= t * step;
-                }
+  template <class Scanner = memory_scanner::mb_kmp>
+  inline std::optional<Pointer>
+  find_one(std::initializer_list<uint8_t> pattern) const {
+    return find_one<Scanner>(
+        std::vector<uint8_t>(std::forward<decltype(pattern)>(pattern)));
+  }
 
-                return *this;
-            }
+  template <class Scanner = memory_scanner::mb_kmp>
+  inline std::optional<Pointer> find_one(
+      std::initializer_list<std::initializer_list<uint8_t>> pattern) const {
+    for (const auto &pat : pattern) {
+      const auto res = find_one<Scanner>(
+          std::vector<uint8_t>(std::forward<decltype(pat)>(pat)));
+      if (res.has_value())
+        return res;
+    }
 
-            inline MemoryIteratorBuffered operator+(size_t t) {
-                return {ptr + t * step, std::max(size - t * step, (size_t) 0), cache};
-            }
+    return {};
+  }
 
-            inline MemoryIteratorBuffered &operator++() {
-                ptr += step;
-                size -= step;
-                return *this;
-            }
+  template <class Scanner = memory_scanner::mb_kmp, typename I>
+  inline std::optional<Pointer>
+  find_one(const std::pair<I, size_t> &pattern) const {
+    const auto res = find_one<Scanner>(pattern.first);
+    return res.and_then(
+        [&](const auto val) { return std::optional(val + pattern.second); });
+  }
 
-            inline MemoryIteratorBuffered operator++(int) {
-                auto tmp = *this;
-                ++(*this);
-                return tmp;
-            }
+  inline auto find_one(std::string_view sv) const {
+    return find_one(std::vector<uint8_t>(sv.begin(), sv.end()));
+  }
 
-            inline bool operator==(const MemoryIteratorBuffered &other) const {
-                return ptr == other.ptr || (size == 0 && other.size == 0);
-            }
+  std::optional<Pointer> find_one_remote(std::vector<uint8_t> pattern) const;
 
-            inline bool operator!=(const MemoryIteratorBuffered &other) const {
-                return !(*this == other);
-            }
+  inline auto find_one_remote(std::string_view sv) const {
+    return find_one_remote(std::vector<uint8_t>(sv.begin(), sv.end()));
+  }
 
-            inline uint8_t operator*() {
-                if (cache->buffer.empty() || /* !(cache->offset ∈ [ptr, ptr+cache->size]) */
-                    cache->offset > ptr.offset() ||
-                    cache->offset + cache->buffer.size() <= ptr.offset()) {
-                        /**
-                         *         cache = std::make_shared<CacheBuffer>(
-            ptr.read(nullptr, bufSize),
-            ptr.offset()
-        );
-                         * 
-                         */
-                    cache->buffer.resize(std::min(bufSize, size));
-                    if (!ptr.read(std::span(cache->buffer.data(), cache->buffer.size())))
-                        throw std::runtime_error("Failed to read memory");
-                    cache->offset = ptr.offset();
-                }
+  std::optional<Pointer> find_xref(Pointer p);
 
-                return cache->buffer[ptr.offset() - cache->offset];
-            }
+  MemoryRange(Pointer pointer, size_t size);
 
-            using value_type = uint8_t;
-            using difference_type = std::ptrdiff_t;
-            using pointer = uint8_t *;
-            using reference = uint8_t &;
-            using iterator_category = std::input_iterator_tag;
-        };
+  int32_t crc32() const;
 
-        using MemoryIterator = MemoryIteratorBuffered<1024 * 4>;
+  [[nodiscard]] disasm::DisassembleRange<MemoryRange> disassembly() const;
+};
 
-        using iterator = MemoryIterator;
-        using const_iterator = MemoryIterator;
+static_assert(std::sentinel_for<decltype(std::declval<MemoryRange>().begin()),
+                                decltype(std::declval<MemoryRange>().end())>);
+static_assert(std::ranges::range<MemoryRange>);
 
-        bool operator==(const MemoryRange &other) const = default;
-
-        [[nodiscard]] MemoryIterator begin() const {
-            return {*static_cast<const Pointer *>(this), _size};
-        }
-
-        [[nodiscard]] MemoryIterator end() const {
-            return {(*static_cast<const Pointer *>(this)).add(_size), 0};
-        }
-
-        template<class Scanner = memory_scanner::mb_kmp>
-        inline std::optional<Pointer>
-        find_one(const std::vector<uint8_t> pattern) const {
-            const auto span = std::span<uint8_t>((uint8_t *) _offset, _size);
-            std::optional<size_t> res = Scanner::searchOne(span, pattern);
-            return res.and_then([this](const auto val) {
-                return std::optional<Pointer>(Pointer(this->proc, this->_offset + val));
-            });
-        }
-
-        template<class Scanner = memory_scanner::mb_kmp>
-        inline std::optional<Pointer>
-        find_one(std::initializer_list<uint8_t> pattern) const {
-            return find_one<Scanner>(
-                    std::vector<uint8_t>(std::forward<decltype(pattern)>(pattern)));
-        }
-
-        template<class Scanner = memory_scanner::mb_kmp>
-        inline std::optional<Pointer> find_one(
-                std::initializer_list<std::initializer_list<uint8_t>> pattern) const {
-            for (const auto &pat: pattern) {
-                const auto res = find_one<Scanner>(
-                        std::vector<uint8_t>(std::forward<decltype(pat)>(pat)));
-                if (res.has_value())
-                    return res;
-            }
-
-            return {};
-        }
-
-        template<class Scanner = memory_scanner::mb_kmp, typename I>
-        inline std::optional<Pointer>
-        find_one(const std::pair<I, size_t> &pattern) const {
-            const auto res = find_one<Scanner>(pattern.first);
-            return res.and_then(
-                    [&](const auto val) { return std::optional(val + pattern.second); });
-        }
-
-        inline auto find_one(std::string_view sv) const {
-            return find_one(std::vector<uint8_t>(sv.begin(), sv.end()));
-        }
-
-        std::optional<Pointer>
-        find_one_remote(std::vector<uint8_t> pattern) const;
-
-        inline auto find_one_remote (std::string_view sv) const {
-            return find_one_remote(std::vector<uint8_t>(sv.begin(), sv.end()));
-        }
-
-        std::optional<Pointer> find_xref(Pointer p);
-
-        MemoryRange(Pointer pointer, size_t size);
-
-        int32_t crc32() const;
-
-        [[nodiscard]] disasm::DisassembleRange<MemoryRange> disassembly() const;
-    };
-
-    static_assert(std::sentinel_for<decltype(std::declval<MemoryRange>().begin()),
-            decltype(std::declval<MemoryRange>().end())>);
-    static_assert(std::ranges::range<MemoryRange>);
-
-    static_assert(std::is_constructible_v<MemoryRange>);
+static_assert(std::is_constructible_v<MemoryRange>);
 } // namespace blook
