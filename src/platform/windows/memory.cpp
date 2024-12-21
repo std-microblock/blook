@@ -17,7 +17,10 @@ ScopedSetMemoryRWX::~ScopedSetMemoryRWX() {
 }
 
 void *Pointer::malloc_rwx(size_t size) {
-  return Process::self()->memo().malloc(size, Pointer::MemoryProtection::rwx).data();
+  return Process::self()
+      ->memo()
+      .malloc(size, Pointer::MemoryProtection::rwx)
+      .data();
 }
 
 void Pointer::protect_rwx(void *p, size_t size) {
@@ -26,8 +29,10 @@ void Pointer::protect_rwx(void *p, size_t size) {
 }
 
 void *Pointer::malloc_near_rwx(void *targetAddr, size_t size) {
-  return Process::self()->memo().malloc(size, targetAddr,
-                                        MemoryProtection::rwx).data();
+  return Process::self()
+      ->memo()
+      .malloc(size, targetAddr, MemoryProtection::rwx)
+      .data();
 }
 
 Pointer Pointer::malloc(size_t size, Pointer::MemoryProtection protection) {
@@ -106,5 +111,21 @@ std::optional<Module> Pointer::owner_module() {
   if (inf.AllocationBase)
     return Module{proc, (HMODULE)inf.AllocationBase};
   return {};
+}
+
+std::optional<Thread> Pointer::create_thread(bool suspended) {
+  if (proc->is_self()) {
+    auto thread = CreateThread(nullptr, 0, (LPTHREAD_START_ROUTINE)data(), nullptr,
+                               suspended ? CREATE_SUSPENDED : 0, nullptr);
+    if (thread == nullptr)
+      return {};
+    return Thread(GetThreadId(thread), proc);
+  } else {
+    auto thread = CreateRemoteThread(proc->h, nullptr, 0, (LPTHREAD_START_ROUTINE)data(),
+                                     nullptr, suspended ? CREATE_SUSPENDED : 0, nullptr);
+    if (thread == nullptr)
+      return {};
+    return Thread(GetThreadId(thread), proc);
+  }
 }
 } // namespace blook

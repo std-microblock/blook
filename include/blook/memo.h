@@ -22,7 +22,7 @@ class Function;
 class MemoryRange;
 
 class MemoryPatch;
-
+struct Thread;
 class Module;
 namespace disasm {
 template <typename Range> class DisassembleRange;
@@ -69,6 +69,8 @@ public:
   std::span<uint8_t> read_leaked(void *ptr, size_t size);
 
   std::expected<void, std::string> write(void *addr, std::span<uint8_t>) const;
+
+  std::optional<Thread> create_thread(bool suspended = false);
 
   template <typename Struct>
   inline std::optional<Struct *> read_leaked(void *ptr = nullptr) {

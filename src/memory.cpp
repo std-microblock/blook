@@ -26,7 +26,7 @@ std::optional<std::vector<uint8_t>> Pointer::try_read(void *ptr,
 }
 
 std::span<uint8_t> Pointer::read_leaked(void *ptr, size_t size) {
-  void *mem = malloc(size);
+  void *mem = malloc(size).data();
   proc->read(mem, (uint8_t *)(_offset + (size_t)ptr), size);
   return {(uint8_t *)mem, size};
 }
