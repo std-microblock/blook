@@ -118,4 +118,7 @@ bool Thread::exists() {
   return GetExitCodeThread((HANDLE)handle.value(), &exitCode) && exitCode ==
                                                                   STILL_ACTIVE;
 }
+bool Thread::join() {
+  return WaitForSingleObject((HANDLE)handle.value(), INFINITE) == WAIT_OBJECT_0;
+}
 } // namespace blook

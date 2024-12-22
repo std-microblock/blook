@@ -36,5 +36,6 @@ struct Thread : public std::enable_shared_from_this<Thread> {
   bool is_suspended();
   bool exists();
   bool terminate();
+  bool join();
 };
 } // namespace blook
