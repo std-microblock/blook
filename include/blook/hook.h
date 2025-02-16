@@ -50,6 +50,17 @@ public:
         std::forward<decltype(func)>(func));
     install(try_trampoline);
   }
+  template<typename T> 
+  inline void install(T* func, bool try_trampoline = true) {
+    if constexpr (std::is_function_v<std::remove_pointer_t<T>>) {
+      if (installed)
+        throw std::runtime_error("The hook was already installed.");
+      hook_func = (void*)func;
+      install(try_trampoline);
+    } else {
+      static_assert(false, "Only function pointers are allowed");
+    }
+  }
   inline void install(void *func, bool try_trampoline = true) {
     if (installed)
       throw std::runtime_error("The hook was already installed.");
