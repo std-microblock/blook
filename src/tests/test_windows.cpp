@@ -281,7 +281,7 @@ void test_thread() {
   auto thread = threads[1];
   auto ctx = thread.capture_context().value();
   std::cout << "Context captured." << std::endl;
-  std::cout << "RAX: " << ctx.rax << std::endl;
+  // std::cout << "RAX: " << ctx.rax << std::endl;
 
 }
 

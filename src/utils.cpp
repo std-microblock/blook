@@ -76,7 +76,7 @@ BLOOK_TEXT_SECTION uint8_t get_peb_fn_buf[] = {
 BLOOK_TEXT_SECTION uint8_t get_peb_fn_buf[] = {
     // mov eax, fs:[0x30];
     // ret;
-    64, A1, 30, 00, 00, 00, C3};
+    0x64, 0x8B, 0x40, 0x30, 0xC3};
 #endif
 #endif
 getreg_fn_t getPEB = (getreg_fn_t)(void *)get_peb_fn_buf;
