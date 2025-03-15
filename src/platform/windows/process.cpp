@@ -178,7 +178,6 @@ void *Process::read(void *dest, void *addr, size_t size) const {
   // }
   if (ReadProcessMemory(this->h, (void *)(addr), dest, size, nullptr))
     return dest;
-  std::println("Failed to read memory: {}", GetLastError());
   return nullptr;
 }
 
