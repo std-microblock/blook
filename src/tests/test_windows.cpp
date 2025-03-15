@@ -281,7 +281,7 @@ void test_thread() {
   auto thread = threads[1];
   auto ctx = thread.capture_context().value();
   std::cout << "Context captured." << std::endl;
-  std::cout << "RAX: " << ctx.rax << std::endl;
+  // std::cout << "RAX: " << ctx.rax << std::endl;
 
 }
 
@@ -289,19 +289,19 @@ int main() {
 
   //   MessageBoxA(nullptr, "hi", "hi", 0);
 
-  // try {
+  try {
   std::println("blook-test started");
   test_thread();
   // test_qq_iter();
-  test_wrap_function();
-  test_exports();
+  // test_wrap_function();
+  // test_exports();
   test_xref();
   test_inline_hook();
   test_disassembly_iterator();
-  // } catch (std::exception &e) {
-  // std::cerr << e.what();
-  // abort();
-  // }
+  } catch (std::exception &e) {
+  std::cerr << e.what();
+  abort();
+  }
   //   test_xref();
   //    try {
   //    test_disassembly_iterator();

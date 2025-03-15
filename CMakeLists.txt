@@ -4,15 +4,15 @@ project(blook)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_C_STANDARD 90)
 
-add_subdirectory(external/zasm)
-
 if(WIN32)
     # MSVC runtime library
     cmake_policy(SET CMP0091 NEW)
     if(NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
-        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+       
     endif()
 endif()
+
+add_subdirectory(external/zasm)
 
 set(BLOOK_SOURCE_WINDOWS src/platform/windows/process.cpp
     src/platform/windows/module.cpp
