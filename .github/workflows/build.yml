@@ -1,0 +1,41 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - 'README.md'
+
+jobs:
+  windows:
+    strategy:
+      matrix:
+        os: [windows-2022, ubuntu-24.04]
+        build_type: [debug, release]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: '2.9.8'
+          actions-cache-folder: '.xmake-cache'
+          actions-cache-key: ${{ matrix.os }}
+          package-cache: true
+          package-cache-key: ${{ matrix.os }}-${{ matrix.build_type }}
+          # build-cache: true
+          # build-cache-key: ${{ matrix.os }}-${{ matrix.build_type }}
+
+      - name: Xmake configure
+        run: |
+          xmake config --yes --mode=${{ matrix.build_type }}
+
+      - name: Build
+        run: |
+          xmake build --verbose --diagnosis --all
