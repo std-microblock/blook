@@ -19,7 +19,11 @@ target("blook")
         add_files("src/platform/linux/*.cpp")
     end
     add_includedirs("include", {public = true})
+    add_headerfiles("include/(**.h)")
 
+    if is_plat("windows") then
+        add_syslinks("advapi32")
+    end
     add_packages("zasm", {public = true})
 
 target("blook-dll-hijack-codegen")
@@ -37,7 +41,7 @@ target("blook-test")
     end
 
     if is_plat("windows") then
-        add_syslinks("user32", "advapi32")
+        add_syslinks("user32")
     end
     add_deps("blook")
 
