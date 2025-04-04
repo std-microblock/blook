@@ -44,7 +44,7 @@ jobs:
 
       - name: Xmake configure
         run: |
-          xmake config --yes --mode=${{ matrix.build_type }}
+          xmake f -c -vD --mode=${{ matrix.build_type }}
 
       - name: Build
         run: |
