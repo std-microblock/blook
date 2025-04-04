@@ -8,7 +8,7 @@ set_allowedmodes("debug", "release", "releasedbg")
 set_languages("c++23")
 set_encodings("utf-8")
 
-add_requires("zasm edd30ff31d5a1d5f68002a61dca0ebf6e3c10ed0")
+add_requires("zasm 916f28f882801c048eaececc2466c8fdc17653fa")
 
 target("blook")
     set_kind("static")
