@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <string>
 
 #ifdef _MSC_VER
@@ -12,7 +13,7 @@
 namespace blook {
 
     namespace misc {
-        void install_optimize_dll_hijacking(void *orig_module);
+        void install_optimize_dll_hijacking(void *orig_module, std::function<bool(std::string)> filter = [](auto) { return true; });
 
         void install_optimize_dll_hijacking(std::string_view orig_module);
 

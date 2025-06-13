@@ -5,6 +5,7 @@
 #include "windows.h"
 #include "winternl.h"
 #include <filesystem>
+#include <print>
 #include <string>
 
 namespace blook {
@@ -23,7 +24,7 @@ void *misc::get_current_module() {
   return (void *)hModule;
 }
 
-void misc::install_optimize_dll_hijacking(void *orig_module) {
+void misc::install_optimize_dll_hijacking(void *orig_module, std::function<bool(std::string)> filter) {
   PBYTE pImageBase = (PBYTE)get_current_module();
   PIMAGE_DOS_HEADER pimDH = (PIMAGE_DOS_HEADER)pImageBase;
   if (pimDH->e_magic == IMAGE_DOS_SIGNATURE) {
@@ -39,10 +40,15 @@ void misc::install_optimize_dll_hijacking(void *orig_module) {
 
       auto module = (HINSTANCE)orig_module;
       for (size_t i = 0; i < pimExD->NumberOfNames; ++i) {
+        auto name = (char *)(pImageBase + pName[i]);
+        if (!filter(name)) {
+          continue;
+        }
+
         void *orig =
-            (void *)GetProcAddress(module, (char *)(pImageBase + pName[i]));
+            (void *)GetProcAddress(module, name);
         void *fake = (void *)GetProcAddress((HMODULE)pImageBase,
-                                            (char *)(pImageBase + pName[i]));
+                                            name);
         if (orig) {
           if (fake == orig) {
             throw std::runtime_error(
@@ -56,11 +62,11 @@ void misc::install_optimize_dll_hijacking(void *orig_module) {
                 a.mov(zasm::x86::r10, zasm::Imm((size_t)orig));
                 a.jmp(zasm::x86::r10);
 #else
-                a.push(zasm::Imm((size_t)orig));
-                a.ret();
+                a.jmp(zasm::Imm((size_t)orig));
 #endif
               })
               .patch();
+          VirtualProtect(fake, 16, PAGE_EXECUTE_READ, nullptr);
         }
       }
     }
