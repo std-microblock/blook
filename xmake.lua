@@ -1,14 +1,14 @@
 set_xmakever("2.9.8")
 
 set_allowedplats("windows", "linux")
-
+add_rules("plugin.compile_commands.autoupdate", {outputdir = "build"})
 add_rules("mode.debug", "mode.release", "mode.releasedbg")
 set_allowedmodes("debug", "release", "releasedbg")
 
 set_languages("c++23")
 set_encodings("utf-8")
 
-add_requires("zasm 916f28f882801c048eaececc2466c8fdc17653fa")
+add_requires("zasm 2025.03.02")
 
 target("blook")
     set_kind("static")

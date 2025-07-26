@@ -4,6 +4,7 @@
 #include "concepts.h"
 #include "memo.h"
 #include "utils.h"
+#include <print>
 #include <utility>
 #include <vector>
 #include <zasm/zasm.hpp>
@@ -88,7 +89,6 @@ public:
     DisassembleIteratorR(DisassembleIteratorR &&) = default;
     DisassembleIteratorR &operator=(const DisassembleIteratorR &) = default;
     DisassembleIteratorR &operator=(DisassembleIteratorR &&) = default;
-    
 
     explicit DisassembleIteratorR(Range range, const Pointer &address,
                                   zasm::MachineMode machine_mode,
@@ -122,6 +122,7 @@ public:
 
   private:
     void decode_next() {
+    retry:
       using namespace zasm;
       Decoder d(machine_mode);
 
@@ -140,20 +141,18 @@ public:
       std::copy(ptr, ptr + buffer.size(), buffer.begin());
       const auto r = d.decode(buffer.data(), BufferSize, address);
       if (!r.hasValue()) {
-        d = Decoder(machine_mode);
-        ptr += 4;
-        address += 4;
-        return decode_next();
-      }
+        ptr += 1;
+        address += 1;
+        goto retry;
+      } else {
+        const auto size = r->getLength();
+        ptr += size;
+        address += size;
+        current_value = InstructionCtx{r.value(), address};
 
-      const auto size = r->getLength();
-      ptr += size;
-      address += size;
-      current_value = InstructionCtx{r.value(), address};
-
-      if (ptr == range_end) {
-        over = true;
-        return;
+        if (ptr == range_end) {
+          over = true;
+        }
       }
     }
   };

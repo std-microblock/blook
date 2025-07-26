@@ -2,6 +2,8 @@
 #include "blook/misc.h"
 #include <format>
 #include <stdexcept>
+#include <zasm/formatter/formatter.hpp>
+
 namespace blook {
 
 namespace utils {
@@ -17,11 +19,7 @@ std::size_t estimateCodeSize(const zasm::Program &program) {
       if (instrInfo.hasValue()) {
         size += instrInfo->getLength();
       } else {
-        throw std::runtime_error(
-            std::format("Failed to estimate code size, error: {} {}",
-                        instrInfo.error().getErrorName(),
-                        instrInfo.error().getErrorMessage()
-                        ));
+        size += 15; // worst case size for an instruction
       }
     } else if (auto *nodeEmbeddedLabel = node->getIf<zasm::EmbeddedLabel>();
                nodeEmbeddedLabel != nullptr) {
@@ -42,7 +40,7 @@ BLOOK_TEXT_SECTION uint8_t _getR11[] = {
     // ret
     0xC3};
 
-getreg_fn_t getR11 = (getreg_fn_t)(void*)_getR11;
+getreg_fn_t getR11 = (getreg_fn_t)(void *)_getR11;
 
 BLOOK_TEXT_SECTION uint8_t _getStackPointer[] = {
     // mov rax, rsp
@@ -57,7 +55,7 @@ BLOOK_TEXT_SECTION uint8_t _getEDX[] = {
     // ret
     0xC3};
 
-getreg_fn_t getEDX = (getreg_fn_t)(void*)_getEDX;
+getreg_fn_t getEDX = (getreg_fn_t)(void *)_getEDX;
 BLOOK_TEXT_SECTION uint8_t _getStackPointer[] = {
     // mov eax, esp
     0x89, 0xE0,
@@ -81,7 +79,7 @@ BLOOK_TEXT_SECTION uint8_t get_peb_fn_buf[] = {
 #endif
 getreg_fn_t getPEB = (getreg_fn_t)(void *)get_peb_fn_buf;
 
-getreg_fn_t getStackPointer = (getreg_fn_t)(void*)_getStackPointer;
+getreg_fn_t getStackPointer = (getreg_fn_t)(void *)_getStackPointer;
 
 } // namespace utils
 } // namespace blook

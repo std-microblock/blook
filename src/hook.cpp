@@ -2,7 +2,7 @@
 #include "blook/blook.h"
 #include <cstdint>
 #include <format>
-
+#include <zasm/formatter/formatter.hpp>
 namespace blook {
 InlineHook::InlineHook(void *target, void *hook_func)
     : target(target), hook_func(hook_func) {}
@@ -51,6 +51,7 @@ void InlineHook::install(bool try_trampoline) {
 
     const auto &instrInfo = *decoderRes;
     const auto instr = instrInfo.getInstruction();
+
     if (auto res = b.emit(instr); res != zasm::ErrorCode::None)
       throw std::runtime_error(
           std::format("Failed to emit instruction at {} {}", curAddress,
@@ -66,9 +67,9 @@ void InlineHook::install(bool try_trampoline) {
   }
 
   if (try_trampoline && !p_trampoline) {
-    const auto trampoline_code_size =
+    const auto trampoline_code_size_estimated =
         utils::estimateCodeSize(programTrampoline);
-    trampoline_size = trampoline_code_size;
+    trampoline_size = trampoline_code_size_estimated;
     const auto trampolineCode =
         Pointer::malloc_near_rwx(target, trampoline_size);
 
@@ -79,7 +80,8 @@ void InlineHook::install(bool try_trampoline) {
       throw std::runtime_error(std::format("JIT Serialization failure: {} {}",
                                            err.getErrorName(),
                                            err.getErrorMessage()));
-    std::memcpy(trampolineCode, serializer2.getCode(), trampoline_code_size);
+    std::memcpy(trampolineCode, serializer2.getCode(),
+                trampoline_code_size_estimated);
     p_trampoline = trampolineCode;
   }
 
