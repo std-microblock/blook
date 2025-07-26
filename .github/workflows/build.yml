@@ -34,7 +34,6 @@ jobs:
       - name: Setup xmake
         uses: xmake-io/github-action-setup-xmake@v1
         with:
-          xmake-version: '2.9.8'
           actions-cache-folder: '.xmake-cache'
           actions-cache-key: ${{ matrix.os }}
           package-cache: true
