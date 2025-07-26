@@ -43,8 +43,8 @@ jobs:
 
       - name: Xmake configure
         run: |
-          xmake f -c -vD --mode=${{ matrix.build_type }}
+          xmake f -c -vD --mode=${{ matrix.build_type }} -y
 
       - name: Build
         run: |
-          xmake build --verbose --diagnosis --all
+          xmake build --verbose --diagnosis --all -y
