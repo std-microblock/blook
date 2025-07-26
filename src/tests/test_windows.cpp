@@ -156,7 +156,7 @@ TEST_F(InlineHookTest, HookWinApiFunction_NonInteractive) {
 
   ULONGLONG original_tick = GetTickCount64();
 
-  const ULONGLONG FAKE_TICK_VALUE = 1337;
+  const ULONGLONG FAKE_TICK_VALUE = 114514;
   hook_GetTickCount->install([=]() -> ULONGLONG { return FAKE_TICK_VALUE; });
   ASSERT_TRUE(hook_GetTickCount->is_installed());
 
