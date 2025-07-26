@@ -34,10 +34,10 @@ class Pointer {
 
 protected:
   size_t _offset = 0;
-  std::shared_ptr<Process> proc = nullptr;
   friend MemoryPatch;
 
 public:
+  std::shared_ptr<Process> proc = nullptr;
   static void *malloc_rwx(size_t size);
 
   static void protect_rwx(void *p, size_t size);

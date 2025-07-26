@@ -76,7 +76,6 @@ public:
   template <typename ReturnVal, typename... Args>
   static inline auto into_function_pointer(
       std::function<ReturnVal(Args...)> *fn) -> ReturnVal (*)(Args...) {
-    std::cout << (void *)fn << std::endl;
     using namespace zasm;
 
     Program program(utils::compileMachineMode());

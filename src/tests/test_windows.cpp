@@ -1,5 +1,5 @@
-
-
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
 #include "blook/blook.h"
 #include "blook/hook.h"
 #include "blook/memo.h"
@@ -137,6 +137,7 @@ TEST_F(InlineHookTest, HookLocalFunction) {
   ASSERT_TRUE(hook_AplusB->is_installed());
 
   EXPECT_EQ(AplusB(10, 5), 50);
+  EXPECT_EQ(hook_AplusB->call_trampoline<int32_t>(10, 5), 15);
 
   hook_AplusB->uninstall();
   ASSERT_FALSE(hook_AplusB->is_installed());
@@ -252,6 +253,22 @@ TEST(BlookModuleTests, ExportParsing) {
   ASSERT_TRUE(exported_func.has_value());
   EXPECT_EQ(exported_func->data<void *>(), (void *)&f_test_exports);
 }
+
+class VEHHookTest : public ::testing::Test {
+protected:
+  std::shared_ptr<blook::InlineHook> hook_AplusB;
+  std::shared_ptr<blook::InlineHook> hook_GetTickCount;
+
+  void TearDown() override {
+
+    if (hook_AplusB && hook_AplusB->is_installed()) {
+      hook_AplusB->uninstall();
+    }
+    if (hook_GetTickCount && hook_GetTickCount->is_installed()) {
+      hook_GetTickCount->uninstall();
+    }
+  }
+};
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);

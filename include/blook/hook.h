@@ -8,16 +8,27 @@
 #include <optional>
 
 namespace blook {
+
+namespace HwBp {
+enum class When { ReadOrWritten, Written, Executed };
+}
+
+
+struct Trampoline {
+  Pointer pTrampoline;
+  size_t trampolineSize;
+  static Trampoline make(Pointer pCode, size_t minByteSize,
+                         bool near_alloc = true);
+};
+
 class Function;
 class InlineHook {
   void *target;
-  std::optional<std::vector<unsigned char>> origData;
-  size_t trampoline_size = 0;
   bool installed = false;
-
 protected:
   void *hook_func = nullptr;
-  void *p_trampoline = nullptr;
+  std::optional<Trampoline> trampoline;
+  std::optional<MemoryPatch> patch;
 
   friend Function;
 
@@ -26,21 +37,19 @@ public:
   InlineHook(void *target);
   InlineHook(void *target, void *hook_func);
   void *trampoline_raw();
-  inline bool is_installed() const noexcept {
-    return installed;
-  }
+  inline bool is_installed() const noexcept { return installed; }
   template <typename ReturnVal, typename... Args>
   inline auto trampoline_t() -> ReturnVal (*)(Args...) {
-    return reinterpret_cast<ReturnVal (*)(Args...)>(p_trampoline);
+    return reinterpret_cast<ReturnVal (*)(Args...)>(trampoline->pTrampoline.data());
   }
 
   template <typename Func> inline auto trampoline_t() -> Func * {
-    return reinterpret_cast<Func *>(p_trampoline);
+    return reinterpret_cast<Func *>(trampoline->pTrampoline.data());
   }
 
   template <typename ReturnType, typename... Args>
   inline auto call_trampoline(Args... args) -> ReturnType {
-    return reinterpret_cast<ReturnType (*)(Args...)>(p_trampoline)(args...);
+    return reinterpret_cast<ReturnType (*)(Args...)>(trampoline->pTrampoline.data())(args...);
   }
 
   void install(bool try_trampoline = true);
@@ -71,27 +80,59 @@ public:
   }
 };
 
-class AnywhereHook {
-  std::optional<MemoryPatch> patch;
-  Pointer target;
-  void *hook_func = nullptr;
-  bool installed = false;
-
+class VEHHookManager {
 public:
-  AnywhereHook(Pointer target);
+  struct VEHHookContext {};
+  using BreakpointCallback = std::function<void(VEHHookContext &ctx)>;
 
-  void install(auto &&func) {
-    if (installed)
-      throw std::runtime_error("The hook was already installed.");
+  struct HardwareBreakpoint {
+    void *address = nullptr;
+    short dr_index = -1;
+    int size = 0;
+    HwBp::When when = HwBp::When::Executed;
+  };
 
-    hook_func = Function::into_safe_function_pointer(
-        std::forward<decltype(func)>(func));
+  struct SoftwareBreakpoint {
+    void *address = nullptr;
+    std::vector<uint8_t> original_bytes;
+  };
 
-    patch = target.reassembly([](zasm::x86::Assembler a) {
+  struct PagefaultBreakpoint {
+    void *address = nullptr;
+    int32_t origin_protection = 0;
+  };
 
-    });
+  struct HardwareBreakpointInformation {
+    HardwareBreakpoint bp;
+    BreakpointCallback callback;
+    void *trampoline_address = nullptr;
+    size_t trampoline_size = 0;
+  };
+
+  static VEHHookManager &instance() {
+    static VEHHookManager instance;
+    return instance;
   }
 
-  void uninstall() {}
+  struct HardwareBreakpointHandler {
+    short dr_index = -1;
+  };
+
+  using VEHHookHandler =
+      std::variant<std::monostate, HardwareBreakpointHandler>;
+
+  VEHHookHandler add_breakpoint(HardwareBreakpoint bp,
+                                BreakpointCallback callback);
+  VEHHookHandler add_breakpoint(SoftwareBreakpoint bp,
+                                BreakpointCallback callback);
+  VEHHookHandler add_breakpoint(PagefaultBreakpoint bp,
+                                BreakpointCallback callback);
+  void remove_breakpoint(const VEHHookHandler &handler);
+
+private:
+  std::array<std::optional<HardwareBreakpointInformation>, 4> hw_breakpoints;
+
+  void sync_hw_breakpoints();
+  VEHHookManager() {}
 };
 } // namespace blook
