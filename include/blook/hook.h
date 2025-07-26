@@ -6,6 +6,8 @@
 #include "utils.h"
 #include "zasm/x86/assembler.hpp"
 #include <optional>
+#include <map>
+#include <Windows.h>
 
 namespace blook {
 
@@ -96,18 +98,28 @@ public:
 
   struct SoftwareBreakpoint {
     void *address = nullptr;
-    std::vector<uint8_t> original_bytes;
   };
 
   struct PagefaultBreakpoint {
     void *address = nullptr;
-    int32_t origin_protection = 0;
   };
 
   struct HardwareBreakpointInformation {
     HardwareBreakpoint bp;
     BreakpointCallback callback;
     Trampoline trampoline;
+  };
+
+  struct SoftwareBreakpointInformation {
+    SoftwareBreakpoint bp;
+    BreakpointCallback callback;
+    std::vector<uint8_t> original_bytes;
+  };
+
+  struct PagefaultBreakpointInformation {
+    PagefaultBreakpoint bp;
+    BreakpointCallback callback;
+    int32_t origin_protection = 0;
   };
 
   static VEHHookManager &instance() {
@@ -119,8 +131,16 @@ public:
     short dr_index = -1;
   };
 
+  struct SoftwareBreakpointHandler {
+    void *address = nullptr;
+  };
+
+  struct PagefaultBreakpointHandler {
+    void *address = nullptr;
+  };
+
   using VEHHookHandler =
-      std::variant<std::monostate, HardwareBreakpointHandler>;
+      std::variant<std::monostate, HardwareBreakpointHandler, SoftwareBreakpointHandler, PagefaultBreakpointHandler>;
 
   VEHHookHandler add_breakpoint(HardwareBreakpoint bp,
                                 BreakpointCallback callback);
@@ -131,6 +151,10 @@ public:
   void remove_breakpoint(const VEHHookHandler &handler);
   
   std::array<std::optional<HardwareBreakpointInformation>, 4> hw_breakpoints;
+  std::map<void *, SoftwareBreakpointInformation> sw_breakpoints;
+  std::map<void *, PagefaultBreakpointInformation> pf_breakpoints;
+  std::map<DWORD, void *> thread_bp_in_progress;
+
   void sync_hw_breakpoints();
 private:
 

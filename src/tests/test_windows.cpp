@@ -377,6 +377,52 @@ TEST(VEHHookTest, HookMultipleFunctions) {
   ASSERT_FALSE(called4);
 }
 
+TEST(VEHHookTest, SoftwareBreakpoint) {
+    bool called = false;
+    auto handler = blook::VEHHookManager::instance().add_breakpoint(
+        blook::VEHHookManager::SoftwareBreakpoint{
+            .address = (void *)veh_test_target_func},
+        [&](blook::VEHHookManager::VEHHookContext &ctx) { called = true; });
+
+    ASSERT_TRUE(
+        std::holds_alternative<blook::VEHHookManager::SoftwareBreakpointHandler>(
+            handler));
+
+    veh_test_target_func(3, 5);
+
+    ASSERT_TRUE(called);
+
+    blook::VEHHookManager::instance().remove_breakpoint(handler);
+
+    called = false;
+    auto result = veh_test_target_func(2, 4);
+    EXPECT_EQ(result, 2 * 4 + 42);
+    ASSERT_FALSE(called);
+}
+
+// TEST(VEHHookTest, PagefaultBreakpoint) {
+//     bool called = false;
+//     auto handler = blook::VEHHookManager::instance().add_breakpoint(
+//         blook::VEHHookManager::PagefaultBreakpoint{
+//             .address = (void *)veh_test_target_func},
+//         [&](blook::VEHHookManager::VEHHookContext &ctx) { called = true; });
+
+//     ASSERT_TRUE(
+//         std::holds_alternative<blook::VEHHookManager::PagefaultBreakpointHandler>(
+//             handler));
+
+//     veh_test_target_func(3, 5);
+
+//     ASSERT_TRUE(called);
+
+//     blook::VEHHookManager::instance().remove_breakpoint(handler);
+
+//     called = false;
+//     auto result = veh_test_target_func(2, 4);
+//     EXPECT_EQ(result, 2 * 4 + 42);
+//     ASSERT_FALSE(called);
+// }
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
