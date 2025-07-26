@@ -26,7 +26,9 @@ public:
   InlineHook(void *target);
   InlineHook(void *target, void *hook_func);
   void *trampoline_raw();
-
+  inline bool is_installed() const noexcept {
+    return installed;
+  }
   template <typename ReturnVal, typename... Args>
   inline auto trampoline_t() -> ReturnVal (*)(Args...) {
     return reinterpret_cast<ReturnVal (*)(Args...)>(p_trampoline);
@@ -50,12 +52,12 @@ public:
         std::forward<decltype(func)>(func));
     install(try_trampoline);
   }
-  template<typename T> 
-  inline void install(T* func, bool try_trampoline = true) {
+  template <typename T>
+  inline void install(T *func, bool try_trampoline = true) {
     if constexpr (std::is_function_v<std::remove_pointer_t<T>>) {
       if (installed)
         throw std::runtime_error("The hook was already installed.");
-      hook_func = (void*)func;
+      hook_func = (void *)func;
       install(try_trampoline);
     } else {
       static_assert(false, "Only function pointers are allowed");
@@ -74,19 +76,20 @@ class AnywhereHook {
   Pointer target;
   void *hook_func = nullptr;
   bool installed = false;
+
 public:
   AnywhereHook(Pointer target);
 
   void install(auto &&func) {
     if (installed)
       throw std::runtime_error("The hook was already installed.");
-    
+
     hook_func = Function::into_safe_function_pointer(
         std::forward<decltype(func)>(func));
 
-      patch = target.reassembly([](zasm::x86::Assembler a){
-        
-      });
+    patch = target.reassembly([](zasm::x86::Assembler a) {
+
+    });
   }
 
   void uninstall() {}

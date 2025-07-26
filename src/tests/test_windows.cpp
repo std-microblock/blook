@@ -1,314 +1,259 @@
+
+
 #include "blook/blook.h"
 #include "blook/hook.h"
-
-#include <algorithm>
-#include <cassert>
-#include <cstdint>
-#include <format>
-#include <memory>
-#include <ostream>
-#include <print>
-
-#include "Windows.h"
 #include "blook/memo.h"
+
+#include <gtest/gtest.h>
+
+#include <chrono>
+#include <cstdint>
+#include <iostream>
+#include <memory>
+#include <string>
+
+#include <Windows.h>
 #include <winuser.h>
 
-void safe_wrapper_tester(int a, int b) {
-  std::println("Safe wrapper called");
-  std::println("a: {}, b: {}", a, b);
-}
+#pragma optimize("", off)
 
-void test_wrap_function() {
-  std::println("Creating function safe wrapper");
-  auto safe =
-      blook::Function::into_safe_function_pointer(safe_wrapper_tester, false);
-  std::println("Safe wrapper created at: {}", (void *)safe);
-  safe(1, 2);
-
-  std::println("Creating function safe wrapper with thread safety");
-  auto safe2 =
-      blook::Function::into_safe_function_pointer(safe_wrapper_tester, true);
-  std::println("Safe wrapper created at: {}", (void *)safe2);
-  safe2(1, 2);
-
-  std::println("Testing function wrapping");
-  const auto wrappedPlain = blook::Function::into_function_pointer(
-      +[](int64_t a, int64_t b) { return a + b; });
-
-  wrappedPlain(1, 2);
-  std::println("Wrapped plain function");
-
-  int evilNum = 1919810;
-  const auto wrapped = blook::Function::into_function_pointer(
-      [=](int64_t a, int64_t b) { return a + b + evilNum; });
-
-  const auto non_wrapped =
-      std::function([=](int64_t a, int64_t b) { return a + b + evilNum; });
-
-  constexpr auto num = 100000000;
-  const auto clock = std::chrono::high_resolution_clock();
-
-  const auto s2 = clock.now();
-  for (int a = 0; a < num; a++)
-    non_wrapped(114, 514);
-  const auto x = clock.now() - s2;
-  std::cout << std::format("non-wrapped version took {} for {} calls\n",
-                           x.count(), num);
-
-  const auto s1 = clock.now();
-  for (int a = 0; a < num; a++)
-    wrapped(114, 514);
-  const auto b = clock.now() - s1;
-  std::cout << std::format("wrapped version took {} for {} calls\n", b.count(),
-                           num);
-
-  std::cout << std::format("delta: {}, radio: {}\n", (b - x).count(),
-                           b.count() / (double)x.count());
-}
-
-static std::shared_ptr<blook::InlineHook> hookMsgBoxA;
-int __stdcall hookMsgBoxAFunc(size_t a, char *text, char *title, size_t b) {
-  std::cout << "Hooked MessageBoxA called" << std::endl;
-  return hookMsgBoxA
-      ->trampoline_t<int __stdcall(size_t, char *, char *, size_t)>()(
-          a, (char *)"hooked MessageBoxA", text, b);
-}
+static int g_safe_wrapper_result = 0;
+void safe_wrapper_target_func(int a, int b) { g_safe_wrapper_result = a + b; }
 
 [[clang::noinline]] [[gnu::noinline]] [[msvc::noinline]]
 int32_t AplusB(int32_t a, int32_t b) {
   return a + b;
 }
 
-void test_inline_hook() {
-  auto process = blook::Process::self();
-  hookMsgBoxA = process->module("USER32.DLL")
-                    .value()
-                    ->exports("MessageBoxA")
-                    ->inline_hook();
+[[clang::noinline]] [[gnu::noinline]] [[msvc::noinline]]
+void *XrefTargetFunction() {
 
-  hookMsgBoxA->install((void *)hookMsgBoxAFunc);
-  std::println("Hooked MessageBoxA");
-
-  MessageBoxA(nullptr, "hi", "hi", 0);
-  std::println("Hooked MessageBoxA return");
-  hookMsgBoxA->uninstall();
-  std::println("Unhooked MessageBoxA");
-  MessageBoxA(nullptr, "hi", "hi", 0);
-  std::println("Unhooked MessageBoxA return");
-
-  auto hookAPB = blook::Pointer((void *)AplusB).as_function().inline_hook();
-  hookAPB->install([=](int32_t a, int32_t b) {
-    std::cout << "Hooked AplusB called" << std::endl;
-    return hookAPB->call_trampoline<int32_t>(a, b);
-  });
-
-  std::cout << "AplusB(1, 2) = " << AplusB(1, 2) << std::endl;
-
-  return;
-}
-
-void test_xref() {
-  auto process = blook::Process::self();
-  auto mod = process->module().value();
-  auto rdata = mod->section(".rdata").value();
-  auto text = mod->section(".text").value();
-
-  const char *xchar =
+  const char *unique_string_for_xref =
       "this_is_some_special_string_that_represents_a_damn_vip_proc";
-  auto a_special_variable = xchar;
-  std::cout << a_special_variable << std::endl;
-  const auto p = rdata.find_one("this_is_some_special_string_").value();
-  std::cout << "Found target special string at: " << std::hex << " " << p.data()
-            << std::endl;
 
-  auto xref = text.find_xref(p).value();
-  std::cout << "Found target usage at: " << std::hex << " " << xref.data()
-            << std::endl;
-
-  auto guess_func = xref.guess_function().value().data();
-  std::cout << "Target function guessed: " << std::hex << guess_func
-            << ", actual: " << &test_xref << std::endl;
+  return (void *)unique_string_for_xref;
 }
 
-struct TestStruct {
-  union U {
-    TestStruct *s;
-    size_t data;
-  } slot[100];
+[[clang::noinline]] [[gnu::noinline]] [[msvc::noinline]]
+const char *DisassemblyTargetFunction() {
+  const char *special_str =
+      "Some other special string for disassembly test...\n";
+
+  return special_str;
+}
+
+extern "C" __declspec(dllexport) void f_test_exports() {}
+#pragma optimize("", on)
+
+TEST(BlookProcessTests, SelfAndModules) {
+  ASSERT_NO_THROW({
+    auto process = blook::Process::self();
+    ASSERT_TRUE(process);
+    ASSERT_NE(process->pid, 0);
+
+    auto main_module = process->module();
+    ASSERT_TRUE(main_module.has_value());
+    ASSERT_NE(main_module.value()->base(), nullptr);
+
+    auto modules = process->modules();
+    ASSERT_TRUE(modules.count("KERNEL32.DLL") > 0 ||
+                modules.count("kernel32.dll") > 0);
+  });
+}
+
+TEST(BlookThreadTests, ListAndContext) {
+  auto proc = blook::Process::self();
+  ASSERT_TRUE(proc);
+
+  auto threads = proc->threads();
+  ASSERT_FALSE(threads.empty());
+
+  bool current_thread_found = false;
+  for (auto &thread : threads) {
+    if (thread.id != GetCurrentThreadId()) {
+      current_thread_found = true;
+      ASSERT_TRUE(thread.capture_context().has_value());
+      break;
+    }
+  }
+  ASSERT_TRUE(current_thread_found);
+}
+
+TEST(BlookFunctionWrapperTests, IntoFunctionPointer) {
+
+  const auto wrappedPlain = blook::Function::into_function_pointer(
+      +[](int64_t a, int64_t b) { return a + b; });
+  ASSERT_NE(wrappedPlain, nullptr);
+  EXPECT_EQ(wrappedPlain(10, 20), 30);
+
+  int evilNum = 100;
+  const auto wrappedCapture = blook::Function::into_function_pointer(
+      [=](int64_t a, int64_t b) { return a + b + evilNum; });
+  ASSERT_NE(wrappedCapture, nullptr);
+  EXPECT_EQ(wrappedCapture(10, 20), 130);
+}
+
+TEST(BlookFunctionWrapperTests, IntoSafeFunctionPointer) {
+
+  g_safe_wrapper_result = 0;
+  auto safe_func = blook::Function::into_safe_function_pointer(
+      safe_wrapper_target_func, false);
+  ASSERT_NE(safe_func, nullptr);
+  safe_func(5, 8);
+  EXPECT_EQ(g_safe_wrapper_result, 13);
+
+  g_safe_wrapper_result = 0;
+  auto safe_func_ts = blook::Function::into_safe_function_pointer(
+      safe_wrapper_target_func, true);
+  ASSERT_NE(safe_func_ts, nullptr);
+  safe_func_ts(10, 20);
+  EXPECT_EQ(g_safe_wrapper_result, 30);
+}
+
+class InlineHookTest : public ::testing::Test {
+protected:
+  std::shared_ptr<blook::InlineHook> hook_AplusB;
+  std::shared_ptr<blook::InlineHook> hook_GetTickCount;
+
+  void TearDown() override {
+
+    if (hook_AplusB && hook_AplusB->is_installed()) {
+      hook_AplusB->uninstall();
+    }
+    if (hook_GetTickCount && hook_GetTickCount->is_installed()) {
+      hook_GetTickCount->uninstall();
+    }
+  }
 };
 
-void test_memory_offsets() {
+TEST_F(InlineHookTest, HookLocalFunction) {
+
+  ASSERT_NO_THROW({
+    hook_AplusB = blook::Pointer((void *)AplusB).as_function().inline_hook();
+    ASSERT_TRUE(hook_AplusB);
+  });
+
+  hook_AplusB->install([=](int32_t a, int32_t b) { return a * b; });
+  ASSERT_TRUE(hook_AplusB->is_installed());
+
+  EXPECT_EQ(AplusB(10, 5), 50);
+
+  hook_AplusB->uninstall();
+  ASSERT_FALSE(hook_AplusB->is_installed());
+
+  EXPECT_EQ(AplusB(10, 5), 15);
+}
+
+TEST_F(InlineHookTest, HookWinApiFunction_NonInteractive) {
+
+  auto process = blook::Process::self();
+  auto kernel32 = process->module("KERNEL32.DLL").value();
+  auto pGetTickCount64 = kernel32->exports("GetTickCount64");
+  ASSERT_TRUE(pGetTickCount64.has_value());
+
+  hook_GetTickCount = pGetTickCount64->inline_hook();
+  ASSERT_TRUE(hook_GetTickCount);
+
+  ULONGLONG original_tick = GetTickCount64();
+
+  const ULONGLONG FAKE_TICK_VALUE = 1337;
+  hook_GetTickCount->install([=]() -> ULONGLONG { return FAKE_TICK_VALUE; });
+  ASSERT_TRUE(hook_GetTickCount->is_installed());
+
+  EXPECT_EQ(GetTickCount64(), FAKE_TICK_VALUE);
+
+  hook_GetTickCount->uninstall();
+  ASSERT_FALSE(hook_GetTickCount->is_installed());
+
+  ULONGLONG restored_tick = GetTickCount64();
+  EXPECT_NE(restored_tick, FAKE_TICK_VALUE);
+  EXPECT_GE(restored_tick, original_tick);
+}
+
+TEST(BlookMemoryTests, PointerOffsets) {
+  struct TestStruct {
+    union U {
+      TestStruct *s;
+      size_t data;
+    } slot[100];
+  };
+
   TestStruct s{};
   s.slot[0x23].s = new TestStruct();
   s.slot[0x23].s->slot[0x12].s = new TestStruct();
   s.slot[0x23].s->slot[0x12].s->slot[0x4].data = 114514;
 
-  auto ptr = (size_t ***)&s;
-  blook::Pointer ptr2 = (void *)&s;
+  blook::Pointer ptr = (void *)&s;
+  auto final_ptr_opt = ptr.offsets({0x23, 0x12, 0x4});
 
-  auto val = *(*(*(ptr + 0x23) + 0x12) + 0x4);
-  auto val2 = **ptr2.offsets({0x23, 0x12, 0x4}).value().read_leaked<size_t>();
+  ASSERT_TRUE(final_ptr_opt.has_value());
+  auto value_opt = final_ptr_opt.value().try_read<size_t>();
 
-  std::cout << "Normal:" << val << " Blook:" << val2;
+  ASSERT_TRUE(value_opt.has_value());
+  EXPECT_EQ(value_opt.value(), 114514);
 
-  assert(val == val2);
+  delete s.slot[0x23].s->slot[0x12].s;
+  delete s.slot[0x23].s;
 }
 
-void test_disassembly_iterator() {
+TEST(BlookAnalysisTests, XRef) {
+  auto process = blook::Process::self();
+  auto mod = process->module().value();
+  auto rdata = mod->section(".rdata").value();
+  auto text = mod->section(".text").value();
+
+  void *target_string_addr = XrefTargetFunction();
+
+  auto xref = text.find_xref(target_string_addr);
+  ASSERT_TRUE(xref.has_value())
+      << "Cross-reference to the test string not found.";
+
+  auto guess_func = xref->guess_function();
+  ASSERT_TRUE(guess_func.has_value()) << "Failed to guess function from XRef.";
+
+  EXPECT_EQ(guess_func->data(), (void *)XrefTargetFunction);
+}
+
+TEST(BlookAnalysisTests, DisassemblyAndXRef) {
   using namespace blook;
-  MemoryRange range =
-      ((Pointer)(void *)(&test_disassembly_iterator)).range_size(0x512);
-  auto iter = range.disassembly();
 
-  int cnt = 0;
-  for (const auto &data : iter) {
-    if (cnt++ > 5) {
-      std::cout << "The fifth instruction mnemonic: " << data->getMnemonic()
-                << std::endl;
-      break;
-    }
-  }
-
-  const char *special_str = "Some other special string...\n";
-  std::cout << special_str;
+  const char *str_in_func = DisassemblyTargetFunction();
+  Pointer target_func_ptr = (void *)DisassemblyTargetFunction;
 
   auto self = Process::self();
   auto mod = self->module().value();
-  auto p_special_str = mod->section(".rdata")->find_one(special_str).value();
+  auto p_special_str = mod->section(".rdata")->find_one(str_in_func);
+  ASSERT_TRUE(p_special_str.has_value())
+      << "Could not find the special string in the module.";
 
-  auto res = std::ranges::find_if(iter, [=](const auto &c) {
-    return std::ranges::contains(c.xrefs(), p_special_str);
+  auto disassembly_range = target_func_ptr.range_size(0x100);
+  auto iter = disassembly_range.disassembly();
+
+  auto result_iter = std::ranges::find_if(iter, [&](const auto &instruction) {
+    return std::ranges::contains(instruction.xrefs(), p_special_str.value());
   });
 
-  std::cout << "Usage found at: " << (*res).ptr();
+  ASSERT_NE(result_iter, iter.end())
+      << "Could not find an instruction that references the special string.";
+
+  uintptr_t instr_addr = (uintptr_t)(*result_iter).ptr().data();
+  uintptr_t func_start = (uintptr_t)target_func_ptr.data();
+  uintptr_t func_end = func_start + 0x100;
+
+  EXPECT_GE(instr_addr, func_start);
+  EXPECT_LT(instr_addr, func_end);
 }
 
-void test_dwm_big_round_corner() {
-  using namespace blook;
-  auto proc = Process::attach("dwm.exe");
-
-  auto mod = proc->modules()["udwm.dll"];
-  auto text = mod->section(".text").value();
-
-  auto iter = text.disassembly();
-
-  int cnt = 0;
-  for (const auto &data : iter) {
-    cnt += data->getLength();
-    auto off = data.ptr() - mod->base();
-    if (data->getMnemonic() == zasm::x86::Mnemonic::Movss &&
-        data->getOperands()[0].holds<zasm::Reg>() &&
-        data->getOperands()[1].holds<zasm::Mem>()) {
-      auto &mem = data->getOperands()[1].get<zasm::Mem>();
-
-      if (mem.getBase() == zasm::x86::rip) {
-        auto val = proc->memo() + mem.getDisplacement();
-        auto data2 = val.try_read<uint32_t>();
-        constexpr const auto smallVar = 0x07210721;
-
-        if (data2 &&
-            (data2 == 0x40800000 || data2 == 0x41000000 ||
-             data2 == 0x41f00000 || data2 == 0x40800000 || data2 == smallVar)) {
-          std::cout << "Found target instruction at: " << data.ptr()
-                    << std::endl;
-          std::cout << "Writing new val to target addr" << std::endl;
-          if (auto res = val.write(16.f); !res) {
-            std::cerr << res.error() << std::endl;
-          }
-        }
-      }
-    }
-  }
-
-  std::cout << "Total bytes disassembled: " << cnt << std::endl;
-}
-
-__declspec(dllexport) extern "C" void f_test_exports() {
-  std::cout << "Exported function called" << std::endl;
-}
-
-void test_exports() {
+TEST(BlookModuleTests, ExportParsing) {
   auto proc = blook::Process::self();
   auto mod = proc->process_module().value();
-  auto exports = mod->exports("f_test_exports").value();
-  assert(exports.data<void *>() == (void *)&f_test_exports);
-  std::println("EAT parse passed");
+  auto exported_func = mod->exports("f_test_exports");
+
+  ASSERT_TRUE(exported_func.has_value());
+  EXPECT_EQ(exported_func->data<void *>(), (void *)&f_test_exports);
 }
 
-void test_qq_iter() {
-  using namespace blook;
-  auto proc = Process::attach("QQ.exe");
-
-  auto mod = proc->modules()["wrapper.node"];
-  auto text = mod->section(".text").value();
-
-  auto iter = text.disassembly();
-  auto timeStart = std::chrono::high_resolution_clock::now();
-  int cnt = 0;
-  int lastProgressReport = 0;
-  for (const auto &data : iter) {
-    cnt += data->getLength();
-
-    if (cnt - lastProgressReport > 0x10000) {
-      std::cout << "Percent: " << (cnt / (float)text.size()) * 100 << std::endl;
-      lastProgressReport = cnt;
-    }
-
-    auto off = data.ptr() - mod->base();
-  }
-
-  std::cout << "Total bytes disassembled: " << cnt << std::endl;
-  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-                      std::chrono::high_resolution_clock::now() - timeStart)
-                      .count();
-  std::println("Disassembly took: {}ms | Speed: {} byte/second", duration,
-               (text.size() / (float)duration) * 1000
-
-  );
-}
-
-void test_thread() {
-  auto proc = blook::Process::self();
-  auto threads = proc->threads();
-  for (const auto &thread : threads) {
-    std::cout << "Thread ID: " << thread.id << std::endl;
-    if(auto name = thread.name(); name.has_value())
-      std::cout << "Thread name: " << name.value() << std::endl;
-  }
-  std::cout << "Total threads: " << threads.size() << std::endl;
-
-  std::cout << "Capturing context of second thread" << std::endl;
-  auto thread = threads[1];
-  auto ctx = thread.capture_context().value();
-  std::cout << "Context captured." << std::endl;
-  // std::cout << "RAX: " << ctx.rax << std::endl;
-
-}
-
-int main() {
-
-  //   MessageBoxA(nullptr, "hi", "hi", 0);
-
-  try {
-  std::println("blook-test started");
-  test_thread();
-  // test_qq_iter();
-  // test_wrap_function();
-  // test_exports();
-  test_xref();
-  test_inline_hook();
-  test_disassembly_iterator();
-  } catch (std::exception &e) {
-  std::cerr << e.what();
-  abort();
-  }
-  //   test_xref();
-  //    try {
-  //    test_disassembly_iterator();
-  //        test_xref();
-  //    test_qq_iter();
-  //    } catch (std::exception &e) {
-  //        std::cerr << e.what();
-  //        abort();
-  //    }
+int main(int argc, char **argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
 }

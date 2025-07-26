@@ -8,7 +8,7 @@ set_allowedmodes("debug", "release", "releasedbg")
 set_languages("c++23")
 set_encodings("utf-8")
 
-add_requires("zasm 2025.03.02")
+add_requires("zasm 2025.03.02", "gtest")
 
 target("blook")
     set_kind("static")
@@ -43,6 +43,7 @@ target("blook-test")
     if is_plat("windows") then
         add_syslinks("user32")
     end
+    add_packages("gtest")
     add_deps("blook")
 
     add_tests("default")
