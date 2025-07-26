@@ -48,3 +48,7 @@ jobs:
       - name: Build
         run: |
           xmake build --verbose --diagnosis --all -y
+
+      - name: Run tests
+        run: |
+          xmake run -v blook-test
