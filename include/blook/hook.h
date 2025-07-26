@@ -82,13 +82,15 @@ public:
 
 class VEHHookManager {
 public:
-  struct VEHHookContext {};
+  struct VEHHookContext {
+    _EXCEPTION_POINTERS *exception_info;
+  };
   using BreakpointCallback = std::function<void(VEHHookContext &ctx)>;
 
   struct HardwareBreakpoint {
     void *address = nullptr;
     short dr_index = -1;
-    int size = 0;
+    int size = 1;
     HwBp::When when = HwBp::When::Executed;
   };
 
@@ -105,8 +107,7 @@ public:
   struct HardwareBreakpointInformation {
     HardwareBreakpoint bp;
     BreakpointCallback callback;
-    void *trampoline_address = nullptr;
-    size_t trampoline_size = 0;
+    Trampoline trampoline;
   };
 
   static VEHHookManager &instance() {
@@ -128,11 +129,11 @@ public:
   VEHHookHandler add_breakpoint(PagefaultBreakpoint bp,
                                 BreakpointCallback callback);
   void remove_breakpoint(const VEHHookHandler &handler);
-
-private:
+  
   std::array<std::optional<HardwareBreakpointInformation>, 4> hw_breakpoints;
-
   void sync_hw_breakpoints();
+private:
+
   VEHHookManager() {}
 };
 } // namespace blook

@@ -12,7 +12,7 @@ add_requires("zasm 2025.03.02", "gtest")
 
 target("blook")
     set_kind("static")
-    add_files("src/*.cpp")
+    add_files("src/*.cpp", "src/**/*.cc")
     add_defines("WIN32_LEAN_AND_MEAN", "NOMINMAX")
     if is_plat("windows") then
         add_files("src/platform/windows/*.cpp")

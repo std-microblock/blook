@@ -120,9 +120,47 @@ Trampoline Trampoline::make(Pointer pCode, size_t minByteSize,
   return t;
 }
 
+static LONG blook_VectoredExceptionHandler(_EXCEPTION_POINTERS *ExceptionInfo) {
+  auto &manager = blook::VEHHookManager::instance();
+  auto code = ExceptionInfo->ExceptionRecord->ExceptionCode;
+  auto address = ExceptionInfo->ExceptionRecord->ExceptionAddress;
+  if (code == EXCEPTION_SINGLE_STEP) {
+    for (const auto &bp : manager.hw_breakpoints) {
+      if (bp.has_value() && bp->bp.address == address) {
+        if (bp->callback) {
+          size_t origRip = ExceptionInfo->ContextRecord->Rip;
+          VEHHookManager::VEHHookContext ctx(ExceptionInfo);
+          bp->callback(ctx);
+          if (ExceptionInfo->ContextRecord->Rip == origRip) {
+            // If the callback didn't change the RIP, jump to trampoline
+            ExceptionInfo->ContextRecord->Rip =
+                (size_t)bp->trampoline.pTrampoline.data();
+          }
+        }
+      }
+    }
+    return EXCEPTION_CONTINUE_EXECUTION;
+  } else if (code == EXCEPTION_BREAKPOINT) {
+    // Handle software breakpoints here if needed
+  } else if (code == EXCEPTION_ACCESS_VIOLATION) {
+    // Handle pagefault breakpoints here if needed
+  }
+
+  return EXCEPTION_CONTINUE_SEARCH;
+}
+
+void ensureVectoredExceptionHandler() {
+  static bool handler_installed = false;
+  if (!handler_installed) {
+    AddVectoredExceptionHandler(1, blook_VectoredExceptionHandler);
+    handler_installed = true;
+  }
+}
+
 VEHHookManager::VEHHookHandler
 VEHHookManager::add_breakpoint(HardwareBreakpoint bp,
                                BreakpointCallback callback) {
+  ensureVectoredExceptionHandler();
   if (bp.dr_index == -1) {
     for (int i = 0; i < 4; ++i) {
       if (!hw_breakpoints[i].has_value()) {
@@ -144,11 +182,8 @@ VEHHookManager::add_breakpoint(HardwareBreakpoint bp,
   hw_breakpoints[bp.dr_index] = {
       .bp = bp,
       .callback = callback,
-      .trampoline_address = nullptr,
-      .trampoline_size = 0,
+      .trampoline = Trampoline::make(bp.address, bp.size, true),
   };
-
-  // allocate trampoline
 
   sync_hw_breakpoints();
   return HardwareBreakpointHandler{bp.dr_index};
@@ -178,17 +213,23 @@ void VEHHookManager::remove_breakpoint(const VEHHookHandler &handler) {
 void VEHHookManager::sync_hw_breakpoints() {
   auto threads = Process::self()->threads();
   for (const auto &thread : threads) {
-    for (auto &bp : hw_breakpoints) {
+    for (int i = 0; i < 4; ++i) {
+      auto &bp = hw_breakpoints[i];
       if (bp.has_value()) {
-        HwBp::Set(bp->bp.address, bp->bp.size, bp->bp.when, bp->bp.dr_index,
-                  OpenThread(THREAD_GET_CONTEXT | THREAD_SET_CONTEXT |
-                                 THREAD_SUSPEND_RESUME,
-                             false, thread.id));
+        if (auto res = HwBp::Set(
+                bp->bp.address, bp->bp.size, bp->bp.when, bp->bp.dr_index,
+                OpenThread(THREAD_GET_CONTEXT | THREAD_SET_CONTEXT |
+                               THREAD_SUSPEND_RESUME,
+                           false, thread.id));
+            res.m_error != HwBp::Result::Success) {
+          std::println(
+              "Failed to set hardware breakpoint on DR{} for thread ID {}: {}",
+              bp->bp.dr_index, thread.id, (int)res.m_error);
+        }
       } else {
-        HwBp::Remove(bp->bp.dr_index,
-                     OpenThread(THREAD_GET_CONTEXT | THREAD_SET_CONTEXT |
-                                    THREAD_SUSPEND_RESUME,
-                                false, thread.id));
+        HwBp::Remove(i, OpenThread(THREAD_GET_CONTEXT | THREAD_SET_CONTEXT |
+                                       THREAD_SUSPEND_RESUME,
+                                   false, thread.id));
       }
     }
   }
