@@ -139,7 +139,7 @@ public:
       auto maxSize = (size_t)30;
       buffer.resize(std::min(maxSize, (size_t)BufferSize));
       std::copy(ptr, ptr + buffer.size(), buffer.begin());
-      const auto r = d.decode(buffer.data(), BufferSize, address);
+      const auto r = d.decode(buffer.data(), BufferSize, (size_t)address.data());
       if (!r.hasValue()) {
         ptr += 1;
         address += 1;
