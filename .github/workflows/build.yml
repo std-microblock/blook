@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-2022]
-        build_type: [release]
+        build_type: [release, releasedbg]
 
     runs-on: ${{ matrix.os }}
 
