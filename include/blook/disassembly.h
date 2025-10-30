@@ -141,8 +141,6 @@ public:
       std::copy(ptr, ptr + buffer.size(), buffer.begin());
       const auto r = d.decode(buffer.data(), BufferSize, (size_t)address.data());
       if (!r.hasValue()) {
-        // TODO: This print is required for things to work, idk why
-        std::print("", (int)r.error().getCode());
         ptr += 1;
         address += 1;
         goto retry;

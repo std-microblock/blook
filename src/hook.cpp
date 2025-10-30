@@ -67,7 +67,7 @@ Trampoline Trampoline::make(Pointer pCode, size_t minByteSize,
   Trampoline t;
 
   auto disasm = blook::disasm::DisassembleRange<blook::MemoryRange>(
-      blook::MemoryRange(pCode, minByteSize + 15), pCode);
+      blook::MemoryRange(pCode, minByteSize + 25), pCode);
 
   zasm::Program program(utils::compileMachineMode());
   zasm::x86::Assembler a(program);
@@ -85,6 +85,10 @@ Trampoline Trampoline::make(Pointer pCode, size_t minByteSize,
     }
 
     occupiedBytes += instr->getLength();
+  }
+
+  if (occupiedBytes < minByteSize) {
+    throw std::runtime_error(std::format("Failed to calculate occupied bytes"));
   }
 
   auto addr_to_jump_back =
@@ -121,76 +125,76 @@ Trampoline Trampoline::make(Pointer pCode, size_t minByteSize,
 }
 
 static LONG blook_VectoredExceptionHandler(_EXCEPTION_POINTERS *ExceptionInfo) {
-    auto &manager = blook::VEHHookManager::instance();
-    auto code = ExceptionInfo->ExceptionRecord->ExceptionCode;
-    auto address = ExceptionInfo->ExceptionRecord->ExceptionAddress;
-    auto thread_id = GetCurrentThreadId();
+  auto &manager = blook::VEHHookManager::instance();
+  auto code = ExceptionInfo->ExceptionRecord->ExceptionCode;
+  auto address = ExceptionInfo->ExceptionRecord->ExceptionAddress;
+  auto thread_id = GetCurrentThreadId();
 
-    if (code == EXCEPTION_SINGLE_STEP) {
-        // Check if this is a re-enable step for a SW/Page-Guard BP
-        if (manager.thread_bp_in_progress.contains(thread_id)) {
-            void *bp_address = manager.thread_bp_in_progress.at(thread_id);
-            
-            if (manager.sw_breakpoints.contains(bp_address)) {
-                uint8_t int3 = 0xCC;
-                Pointer(bp_address).write(nullptr, std::span(&int3, 1));
-            } else if (manager.pf_breakpoints.contains(bp_address)) {
-                auto &bp = manager.pf_breakpoints.at(bp_address);
-                DWORD old_protect;
-                VirtualProtect(bp_address, 1, bp.origin_protection | PAGE_GUARD, &old_protect);
-            }
-            manager.thread_bp_in_progress.erase(thread_id);
-            return EXCEPTION_CONTINUE_EXECUTION;
-        }
+  if (code == EXCEPTION_SINGLE_STEP) {
+    // Check if this is a re-enable step for a SW/Page-Guard BP
+    if (manager.thread_bp_in_progress.contains(thread_id)) {
+      void *bp_address = manager.thread_bp_in_progress.at(thread_id);
 
-        // If not a re-enable step, check for a hardware breakpoint
-        for (auto &bp_opt : manager.hw_breakpoints) {
-            if (bp_opt.has_value() && bp_opt->bp.address == address) {
-                if (bp_opt->callback) {
-                    size_t origRip = ExceptionInfo->ContextRecord->Rip;
-                    VEHHookManager::VEHHookContext ctx(ExceptionInfo);
-                    bp_opt->callback(ctx);
-                    if (ExceptionInfo->ContextRecord->Rip == origRip) {
-                        ExceptionInfo->ContextRecord->Rip =
-                            (size_t)bp_opt->trampoline.pTrampoline.data();
-                    }
-                }
-                return EXCEPTION_CONTINUE_EXECUTION;
-            }
-        }
-
-    } else if (code == EXCEPTION_BREAKPOINT) {
-        if (manager.sw_breakpoints.contains(address)) {
-            auto &bp = manager.sw_breakpoints.at(address);
-            Pointer(address).write(nullptr, bp.original_bytes);
-            ExceptionInfo->ContextRecord->Rip = (DWORD_PTR)address;
-
-            if (bp.callback) {
-                VEHHookManager::VEHHookContext ctx(ExceptionInfo);
-                bp.callback(ctx);
-            }
-            
-            ExceptionInfo->ContextRecord->EFlags |= (1 << 8);
-            manager.thread_bp_in_progress[thread_id] = address;
-            return EXCEPTION_CONTINUE_EXECUTION;
-        }
-    } else if (code == EXCEPTION_GUARD_PAGE) {
-        if (manager.pf_breakpoints.contains(address)) {
-            auto &bp = manager.pf_breakpoints.at(address);
-            if (bp.callback) {
-                VEHHookManager::VEHHookContext ctx(ExceptionInfo);
-                bp.callback(ctx);
-            }
-            manager.thread_bp_in_progress[thread_id] = address;
-            ExceptionInfo->ContextRecord->EFlags |= (1 << 8);
-            return EXCEPTION_CONTINUE_EXECUTION;
-        }
-        return EXCEPTION_CONTINUE_SEARCH;
+      if (manager.sw_breakpoints.contains(bp_address)) {
+        uint8_t int3 = 0xCC;
+        Pointer(bp_address).write(nullptr, std::span(&int3, 1));
+      } else if (manager.pf_breakpoints.contains(bp_address)) {
+        auto &bp = manager.pf_breakpoints.at(bp_address);
+        DWORD old_protect;
+        VirtualProtect(bp_address, 1, bp.origin_protection | PAGE_GUARD,
+                       &old_protect);
+      }
+      manager.thread_bp_in_progress.erase(thread_id);
+      return EXCEPTION_CONTINUE_EXECUTION;
     }
 
-    return EXCEPTION_CONTINUE_SEARCH;
-}
+    // If not a re-enable step, check for a hardware breakpoint
+    for (auto &bp_opt : manager.hw_breakpoints) {
+      if (bp_opt.has_value() && bp_opt->bp.address == address) {
+        if (bp_opt->callback) {
+          size_t origRip = ExceptionInfo->ContextRecord->Rip;
+          VEHHookManager::VEHHookContext ctx(ExceptionInfo);
+          bp_opt->callback(ctx);
+          if (ExceptionInfo->ContextRecord->Rip == origRip) {
+            ExceptionInfo->ContextRecord->Rip =
+                (size_t)bp_opt->trampoline.pTrampoline.data();
+          }
+        }
+        return EXCEPTION_CONTINUE_EXECUTION;
+      }
+    }
 
+  } else if (code == EXCEPTION_BREAKPOINT) {
+    if (manager.sw_breakpoints.contains(address)) {
+      auto &bp = manager.sw_breakpoints.at(address);
+      Pointer(address).write(nullptr, bp.original_bytes);
+      ExceptionInfo->ContextRecord->Rip = (DWORD_PTR)address;
+
+      if (bp.callback) {
+        VEHHookManager::VEHHookContext ctx(ExceptionInfo);
+        bp.callback(ctx);
+      }
+
+      ExceptionInfo->ContextRecord->EFlags |= (1 << 8);
+      manager.thread_bp_in_progress[thread_id] = address;
+      return EXCEPTION_CONTINUE_EXECUTION;
+    }
+  } else if (code == EXCEPTION_GUARD_PAGE) {
+    if (manager.pf_breakpoints.contains(address)) {
+      auto &bp = manager.pf_breakpoints.at(address);
+      if (bp.callback) {
+        VEHHookManager::VEHHookContext ctx(ExceptionInfo);
+        bp.callback(ctx);
+      }
+      manager.thread_bp_in_progress[thread_id] = address;
+      ExceptionInfo->ContextRecord->EFlags |= (1 << 8);
+      return EXCEPTION_CONTINUE_EXECUTION;
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+  }
+
+  return EXCEPTION_CONTINUE_SEARCH;
+}
 
 void ensureVectoredExceptionHandler() {
   static bool handler_installed = false;
@@ -236,22 +240,24 @@ VEHHookManager::add_breakpoint(SoftwareBreakpoint bp,
                                BreakpointCallback callback) {
   ensureVectoredExceptionHandler();
   if (sw_breakpoints.contains(bp.address)) {
-    throw std::runtime_error("Software breakpoint already exists at this address.");
+    throw std::runtime_error(
+        "Software breakpoint already exists at this address.");
   }
 
   SoftwareBreakpointInformation info;
   info.bp = bp;
   info.callback = callback;
-  
+
   auto original_byte = Pointer(bp.address).try_read<uint8_t>();
   if (!original_byte) {
-      throw std::runtime_error("Failed to read original byte for software breakpoint.");
+    throw std::runtime_error(
+        "Failed to read original byte for software breakpoint.");
   }
   info.original_bytes.push_back(*original_byte);
 
   uint8_t int3 = 0xCC;
   if (!Pointer(bp.address).write(nullptr, std::span(&int3, 1))) {
-      throw std::runtime_error("Failed to write INT3 for software breakpoint.");
+    throw std::runtime_error("Failed to write INT3 for software breakpoint.");
   }
 
   sw_breakpoints[bp.address] = std::move(info);
@@ -260,28 +266,30 @@ VEHHookManager::add_breakpoint(SoftwareBreakpoint bp,
 VEHHookManager::VEHHookHandler
 VEHHookManager::add_breakpoint(PagefaultBreakpoint bp,
                                BreakpointCallback callback) {
-    ensureVectoredExceptionHandler();
-    if (pf_breakpoints.contains(bp.address)) {
-        throw std::runtime_error("Pagefault breakpoint already exists at this address.");
-    }
+  ensureVectoredExceptionHandler();
+  if (pf_breakpoints.contains(bp.address)) {
+    throw std::runtime_error(
+        "Pagefault breakpoint already exists at this address.");
+  }
 
-    PagefaultBreakpointInformation info;
-    info.bp = bp;
-    info.callback = callback;
+  PagefaultBreakpointInformation info;
+  info.bp = bp;
+  info.callback = callback;
 
-    MEMORY_BASIC_INFORMATION mbi;
-    if (VirtualQuery(bp.address, &mbi, sizeof(mbi)) == 0) {
-        throw std::runtime_error("VirtualQuery failed for pagefault breakpoint.");
-    }
-    info.origin_protection = mbi.Protect;
+  MEMORY_BASIC_INFORMATION mbi;
+  if (VirtualQuery(bp.address, &mbi, sizeof(mbi)) == 0) {
+    throw std::runtime_error("VirtualQuery failed for pagefault breakpoint.");
+  }
+  info.origin_protection = mbi.Protect;
 
-    DWORD old_protect;
-    if (!VirtualProtect(bp.address, 1, info.origin_protection | PAGE_GUARD, &old_protect)) {
-        throw std::runtime_error("VirtualProtect failed for pagefault breakpoint.");
-    }
+  DWORD old_protect;
+  if (!VirtualProtect(bp.address, 1, info.origin_protection | PAGE_GUARD,
+                      &old_protect)) {
+    throw std::runtime_error("VirtualProtect failed for pagefault breakpoint.");
+  }
 
-    pf_breakpoints[bp.address] = std::move(info);
-    return PagefaultBreakpointHandler{bp.address};
+  pf_breakpoints[bp.address] = std::move(info);
+  return PagefaultBreakpointHandler{bp.address};
 }
 void VEHHookManager::remove_breakpoint(const VEHHookHandler &handler) {
   if (auto _hwbp = std::get_if<HardwareBreakpointHandler>(&handler)) {
@@ -293,21 +301,20 @@ void VEHHookManager::remove_breakpoint(const VEHHookHandler &handler) {
     sync_hw_breakpoints();
   } else if (auto _swbp = std::get_if<SoftwareBreakpointHandler>(&handler)) {
     if (!sw_breakpoints.contains(_swbp->address)) {
-        return;
+      return;
     }
-    auto& bp_info = sw_breakpoints.at(_swbp->address);
+    auto &bp_info = sw_breakpoints.at(_swbp->address);
     Pointer(_swbp->address).write(nullptr, bp_info.original_bytes);
     sw_breakpoints.erase(_swbp->address);
   } else if (auto _pfbp = std::get_if<PagefaultBreakpointHandler>(&handler)) {
-      if (!pf_breakpoints.contains(_pfbp->address)) {
-          return;
-      }
-      auto& bp_info = pf_breakpoints.at(_pfbp->address);
-      DWORD old_protect;
-      VirtualProtect(_pfbp->address, 1, bp_info.origin_protection, &old_protect);
-      pf_breakpoints.erase(_pfbp->address);
-  }
-  else {
+    if (!pf_breakpoints.contains(_pfbp->address)) {
+      return;
+    }
+    auto &bp_info = pf_breakpoints.at(_pfbp->address);
+    DWORD old_protect;
+    VirtualProtect(_pfbp->address, 1, bp_info.origin_protection, &old_protect);
+    pf_breakpoints.erase(_pfbp->address);
+  } else {
     throw std::runtime_error("Unsupported breakpoint type.");
   }
 }

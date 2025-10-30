@@ -8,7 +8,7 @@ set_allowedmodes("debug", "release", "releasedbg")
 set_languages("c++23")
 set_encodings("utf-8")
 
-add_requires("zasm c239a78b51c1b0060296193174d78b802f02a618", "gtest")
+add_requires("zasm 2025.03.02", "gtest")
 
 target("blook")
     set_kind("static")
