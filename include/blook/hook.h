@@ -114,6 +114,7 @@ public:
     SoftwareBreakpoint bp;
     BreakpointCallback callback;
     std::vector<uint8_t> original_bytes;
+    Trampoline trampoline;
   };
 
   struct PagefaultBreakpointInformation {

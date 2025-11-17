@@ -135,10 +135,7 @@ static LONG blook_VectoredExceptionHandler(_EXCEPTION_POINTERS *ExceptionInfo) {
     if (manager.thread_bp_in_progress.contains(thread_id)) {
       void *bp_address = manager.thread_bp_in_progress.at(thread_id);
 
-      if (manager.sw_breakpoints.contains(bp_address)) {
-        uint8_t int3 = 0xCC;
-        Pointer(bp_address).write(nullptr, std::span(&int3, 1));
-      } else if (manager.pf_breakpoints.contains(bp_address)) {
+      if (manager.pf_breakpoints.contains(bp_address)) {
         auto &bp = manager.pf_breakpoints.at(bp_address);
         DWORD old_protect;
         VirtualProtect(bp_address, 1, bp.origin_protection | PAGE_GUARD,
@@ -148,7 +145,7 @@ static LONG blook_VectoredExceptionHandler(_EXCEPTION_POINTERS *ExceptionInfo) {
       return EXCEPTION_CONTINUE_EXECUTION;
     }
 
-    // If not a re-enable step, check for a hardware breakpoint
+    // If not a re-enable step, check for a hardware breakpoint or software bp
     for (auto &bp_opt : manager.hw_breakpoints) {
       if (bp_opt.has_value() && bp_opt->bp.address == address) {
         if (bp_opt->callback) {
@@ -158,6 +155,21 @@ static LONG blook_VectoredExceptionHandler(_EXCEPTION_POINTERS *ExceptionInfo) {
           if (ExceptionInfo->ContextRecord->Rip == origRip) {
             ExceptionInfo->ContextRecord->Rip =
                 (size_t)bp_opt->trampoline.pTrampoline.data();
+          }
+        }
+        return EXCEPTION_CONTINUE_EXECUTION;
+      }
+    }
+
+    for (auto &[addr, bp] : manager.sw_breakpoints) {
+      if (addr == address) {
+        if (bp.callback) {
+          size_t origRip = ExceptionInfo->ContextRecord->Rip;
+          VEHHookManager::VEHHookContext ctx(ExceptionInfo);
+          bp.callback(ctx);
+          if (ExceptionInfo->ContextRecord->Rip == origRip) {
+            ExceptionInfo->ContextRecord->Rip =
+                (size_t)bp.trampoline.pTrampoline.data();
           }
         }
         return EXCEPTION_CONTINUE_EXECUTION;
@@ -254,6 +266,7 @@ VEHHookManager::add_breakpoint(SoftwareBreakpoint bp,
         "Failed to read original byte for software breakpoint.");
   }
   info.original_bytes.push_back(*original_byte);
+  info.trampoline = Trampoline::make(bp.address, 1, true);
 
   uint8_t int3 = 0xCC;
   if (!Pointer(bp.address).write(nullptr, std::span(&int3, 1))) {
