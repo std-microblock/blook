@@ -3,6 +3,7 @@
 //
 
 #include "blook/memory_scanner/mb_kmp.h"
+#include "blook/memo.h"
 #include <vector>
 
 namespace blook {
@@ -31,17 +32,24 @@ namespace blook {
 
 
     std::optional<size_t>
-    memory_scanner::mb_kmp::searchOne(std::span<uint8_t> data, const std::vector<uint8_t> &pattern) {
-        if (data.size() == 0 || pattern.size() == 0 || pattern.size() > data.size())
+    memory_scanner::mb_kmp::searchOne(uint8_t* data, size_t size, const std::vector<uint8_t> &pattern) {
+        if (size == 0 || pattern.size() == 0 || pattern.size() > size)
             return {};
 
         std::vector<size_t> lps(pattern.size(), 0);
         ComputeLPSArray((void *) pattern.data(), pattern.size(), lps);
 
         size_t i = 0, j = 0;
-        char *dataa = (char *) data.data();
-        while (i < data.size()) {
-            if (*(data.data() + i) == *(pattern.data() + j) ||
+        while (i < size) {
+            // test if the page is accessible when switched page
+            if ((size_t)(data + i) % 0x1000 == 0 || i == 0) {
+                if(!blook::Pointer(data+i).try_read<int>(0)) {
+                    i += 0x1000 - ((size_t)(data + i) % 0x1000);
+                    continue;
+                }
+            }
+
+            if (*(data + i) == *(pattern.data() + j) ||
                 *(pattern.data() + j) == memory_scanner::ANYpattern) {
                 i++;
                 j++;

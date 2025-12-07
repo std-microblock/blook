@@ -158,12 +158,6 @@ void *Module::inject(const std::string &dll_path, Module::InjectMethod method) {
 }
 
 std::optional<MemoryRange> Module::section(const std::string &name) {
-  //        if (!proc->is_self())
-  //            throw std::runtime_error("The operation can only be accomplished
-  //            for the "
-  //                                     "current process currently. "
-  //                                     "Inject your code into target process
-  //                                     first.");
 
   auto mod = base();
 

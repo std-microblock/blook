@@ -270,26 +270,23 @@ public:
       return !(*this == other);
     }
 
-    inline uint8_t operator*() {
+    inline bool is_readable() const { return try_read().has_value(); }
+
+    inline std::optional<uint8_t> try_read() const {
       if (cache->buffer
               .empty() || /* !(cache->offset ∈ [ptr, ptr+cache->size]) */
           cache->offset > ptr.offset() ||
           cache->offset + cache->buffer.size() <= ptr.offset()) {
-        /**
-         *         cache = std::make_shared<CacheBuffer>(
-ptr.read(nullptr, bufSize),
-ptr.offset()
-);
-         *
-         */
         cache->buffer.resize(std::min(bufSize, size));
         if (!ptr.read(std::span(cache->buffer.data(), cache->buffer.size())))
-          throw std::runtime_error("Failed to read memory");
+          return {};
         cache->offset = ptr.offset();
       }
 
       return cache->buffer[ptr.offset() - cache->offset];
     }
+
+    inline uint8_t operator*() { return try_read().value(); }
 
     using value_type = uint8_t;
     using difference_type = std::ptrdiff_t;
@@ -316,8 +313,7 @@ ptr.offset()
   template <class Scanner = memory_scanner::mb_kmp>
   inline std::optional<Pointer>
   find_one(const std::vector<uint8_t> pattern) const {
-    const auto span = std::span<uint8_t>((uint8_t *)_offset, _size);
-    std::optional<size_t> res = Scanner::searchOne(span, pattern);
+    std::optional<size_t> res = Scanner::searchOne((uint8_t*)_offset, _size, pattern);
     return res.and_then([this](const auto val) {
       return std::optional<Pointer>(Pointer(this->proc, this->_offset + val));
     });

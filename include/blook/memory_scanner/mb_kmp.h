@@ -1,19 +1,21 @@
 #pragma once
 
-#include <vector>
+#include <cstdint>
 #include <optional>
 #include <span>
-#include <cstdint>
+#include <vector>
+
 
 namespace blook {
 
-    namespace memory_scanner {
-        constexpr unsigned char ANYpattern = 0xBC;
+namespace memory_scanner {
+constexpr unsigned char ANYpattern = 0xBC;
 
-        class mb_kmp {
-        public:
-            static std::optional<size_t> searchOne(std::span<uint8_t>, const std::vector<uint8_t> &);
-        };
-    }
+class mb_kmp {
+public:
+  static std::optional<size_t> searchOne(uint8_t *data, size_t size,
+                                         const std::vector<uint8_t> &pattern);
+};
+} // namespace memory_scanner
 
-} // blook
+} // namespace blook
