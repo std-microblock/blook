@@ -42,6 +42,10 @@ public:
 
   std::optional<MemoryRange> section(const std::string &name);
 
+  inline MemoryRange memo() {
+    return base().range_size(size());
+  }
+
   std::optional<Function> entry_point();
 
   void *data();
