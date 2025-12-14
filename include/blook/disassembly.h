@@ -146,9 +146,9 @@ public:
         goto retry;
       } else {
         const auto size = r->getLength();
+        current_value = InstructionCtx{r.value(), address};
         ptr += size;
         address += size;
-        current_value = InstructionCtx{r.value(), address};
 
         if (ptr == range_end) {
           over = true;
