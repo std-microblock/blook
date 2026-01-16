@@ -16,7 +16,6 @@
 #include <type_traits>
 #include <vector>
 
-
 #include "process.h"
 
 namespace blook {
@@ -46,6 +45,7 @@ public:
 
   std::shared_ptr<Process> proc = nullptr;
   bool is_self() const;
+  bool is_valid() const;
 
   bool operator==(const Pointer &other) const = default;
 
@@ -163,8 +163,8 @@ public:
   }
 
   inline void write_bytearray(std::wstring_view data) const {
-    write_bytearray(std::span<const uint8_t>(
-        (const uint8_t *)data.data(), data.size() * sizeof(wchar_t)));
+    write_bytearray(std::span<const uint8_t>((const uint8_t *)data.data(),
+                                             data.size() * sizeof(wchar_t)));
   }
 
   void write_pointer(Pointer ptr) const;
@@ -283,8 +283,6 @@ struct ScopedSetMemoryRWX {
   Process::MemoryProtection old_protect;
 
   ScopedSetMemoryRWX(Pointer ptr, size_t size);
-  ScopedSetMemoryRWX(void *ptr, size_t size)
-      : ScopedSetMemoryRWX(Pointer(ptr), size) {}
   ScopedSetMemoryRWX(const ScopedSetMemoryRWX &) = delete;
   ScopedSetMemoryRWX &operator=(const ScopedSetMemoryRWX &) = delete;
   ScopedSetMemoryRWX(const MemoryRange &r);
