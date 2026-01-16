@@ -234,4 +234,7 @@ MemoryPatch Pointer::reassembly_thread_pause() {
 #endif
   });
 }
+bool Pointer::is_valid() const {
+  return proc != nullptr && proc->check_valid((void *)_offset);
+}
 } // namespace blook
