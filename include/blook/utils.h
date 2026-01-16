@@ -4,6 +4,7 @@
 #include "zasm/base/mode.hpp"
 #include "zasm/decoder/decoder.hpp"
 #include "zasm/zasm.hpp"
+#include <string>
 
 #ifndef CLASS_MOVE_ONLY
 #define CLASS_MOVE_ONLY(classname)                                             \
@@ -63,6 +64,9 @@ constexpr auto compileMachineMode() {
     static_assert(false, "Unsupported architecture");
   }
 }
+
+std::string to_lower(const std::string &str);
+
 }; // namespace utils
 
 } // namespace blook

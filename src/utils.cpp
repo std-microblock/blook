@@ -81,5 +81,13 @@ getreg_fn_t getPEB = (getreg_fn_t)(void *)get_peb_fn_buf;
 
 getreg_fn_t getStackPointer = (getreg_fn_t)(void *)_getStackPointer;
 
+std::string to_lower(const std::string &str) {
+  std::string result;
+  result.reserve(str.size());
+  for (char c : str) {
+    result += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  }
+  return result;
+}
 } // namespace utils
 } // namespace blook

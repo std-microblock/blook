@@ -3,6 +3,7 @@
 
 #include "blook/blook.h"
 
+#include "blook/utils.h"
 #include "windows.h"
 
 #include "psapi.h"
@@ -36,8 +37,7 @@ static HMODULE GetProcessBaseAddress(HANDLE processHandle,
   HMODULE *moduleArray;
   LPBYTE moduleArrayBytes;
   DWORD bytesRequired;
-  std::transform(modulename.begin(), modulename.end(), modulename.begin(),
-                 [](unsigned char c) { return std::tolower(c); });
+  modulename = blook::utils::to_lower(modulename);
 
   if (processHandle) {
     if (EnumProcessModules(processHandle, NULL, 0, &bytesRequired)) {
@@ -57,10 +57,7 @@ static HMODULE GetProcessBaseAddress(HANDLE processHandle,
               char name[MAX_PATH];
               if (GetModuleFileNameA(module, name, MAX_PATH)) {
                 auto filename = std::filesystem::path(name).filename().string();
-
-                std::transform(filename.begin(), filename.end(),
-                               filename.begin(),
-                               [](unsigned char c) { return std::tolower(c); });
+                filename = blook::utils::to_lower(filename);
                 if (modulename == filename) {
                   baseAddress = module;
                   break;
@@ -181,7 +178,8 @@ std::expected<void, std::string> Process::try_write(void *dst, const void *src,
     if (safe_memcpy(dst, src, size)) {
       return {};
     } else {
-      return std::unexpected(std::format("Failed to write memory {:p}: access violation", dst));
+      return std::unexpected(
+          std::format("Failed to write memory {:p}: access violation", dst));
     }
   } else {
     SIZE_T written = 0;
@@ -369,7 +367,7 @@ Process::module(const std::string &name) {
     return {};
   } else {
     auto modules = this->modules();
-    auto it = modules.find(name);
+    auto it = modules.find(blook::utils::to_lower(name));
     if (it != modules.end())
       return it->second;
     return {};
@@ -449,8 +447,7 @@ std::map<std::string, std::shared_ptr<Module>> Process::modules() {
       if (GetModuleFileNameExA(this->h, hMods[i], szModName,
                                sizeof(szModName))) {
         auto name = std::filesystem::path(szModName).filename().string();
-        std::transform(name.begin(), name.end(), name.begin(),
-                       [](unsigned char c) { return std::tolower(c); });
+        name = blook::utils::to_lower(name);
         modules[name] = Module::make(
             const_cast<Process *>(this)->shared_from_this(), hMods[i]);
       }
