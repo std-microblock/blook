@@ -94,12 +94,29 @@ public:
   std::expected<std::string, std::string>
   try_read_utf8_string(size_t length = -1) const;
 
-  std::expected<std::string, std::string>
+  std::expected<std::wstring, std::string>
   try_read_utf16_string(size_t length = -1) const;
 
   // Write operations
   std::expected<void, std::string>
   try_write_bytearray(std::span<const uint8_t> data) const;
+
+  inline std::expected<void, std::string>
+  try_write_bytearray(const std::vector<uint8_t> &data) const {
+    return try_write_bytearray(std::span(data));
+  }
+
+  inline std::expected<void, std::string>
+  try_write_bytearray(std::string_view data) const {
+    return try_write_bytearray(
+        std::span<const uint8_t>((const uint8_t *)data.data(), data.size()));
+  }
+
+  inline std::expected<void, std::string>
+  try_write_bytearray(std::wstring_view data) const {
+    return try_write_bytearray(std::span<const uint8_t>(
+        (const uint8_t *)data.data(), data.size() * sizeof(wchar_t)));
+  }
 
   std::expected<void, std::string> try_write_pointer(Pointer ptr) const;
 
@@ -133,9 +150,32 @@ public:
   }
 
   std::string read_utf8_string(size_t length = -1) const;
-  std::string read_utf16_string(size_t length = -1) const;
+  std::wstring read_utf16_string(size_t length = -1) const;
+
+  std::expected<void, std::string>
+  try_write_utf8_string(std::string_view str) const;
+  std::expected<void, std::string>
+  try_write_utf16_string(std::wstring_view str) const;
+
+  void write_utf8_string(std::string_view str) const;
+  void write_utf16_string(std::wstring_view str) const;
 
   void write_bytearray(std::span<const uint8_t> data) const;
+
+  inline void write_bytearray(const std::vector<uint8_t> &data) const {
+    write_bytearray(std::span(data));
+  }
+
+  inline void write_bytearray(std::string_view data) const {
+    write_bytearray(
+        std::span<const uint8_t>((const uint8_t *)data.data(), data.size()));
+  }
+
+  inline void write_bytearray(std::wstring_view data) const {
+    write_bytearray(std::span<const uint8_t>(
+        (const uint8_t *)data.data(), data.size() * sizeof(wchar_t)));
+  }
+
   void write_pointer(Pointer ptr) const;
 
   template <typename T> void write_struct(const T &value) const {

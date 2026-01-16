@@ -239,7 +239,7 @@ TEST(BlookMemoryTests, NewReadWriteAPI) {
 
   const wchar_t *utf16_str = L"hello utf16";
   Pointer p_utf16 = (void *)utf16_str;
-  EXPECT_EQ(p_utf16.read_utf16_string(), "hello utf16");
+  EXPECT_TRUE(p_utf16.read_utf16_string() == std::wstring(L"hello utf16"));
 
   // Test try_read/try_write
   auto res = p32.try_read_s32();
@@ -260,6 +260,27 @@ TEST(BlookMemoryTests, NewReadWriteAPI) {
   Pointer read_ptr = p_storage.read_pointer();
   EXPECT_EQ(read_ptr.data(), target_ptr);
   EXPECT_EQ(read_ptr.read_s32(), 123);
+
+  // Test string writing
+  char str_buf[20];
+  Pointer p_str_buf = (void*)str_buf;
+  p_str_buf.write_utf8_string("test string");
+  EXPECT_STREQ(str_buf, "test string");
+  EXPECT_EQ(p_str_buf.read_utf8_string(), "test string");
+
+  wchar_t wstr_buf[20];
+  Pointer p_wstr_buf = (void*)wstr_buf;
+  p_wstr_buf.write_utf16_string(L"test wstring");
+  EXPECT_TRUE(p_wstr_buf.read_utf16_string() == std::wstring(L"test wstring"));
+
+  // Test write_bytearray overloads
+  std::string s_data = "abcd";
+  p_str_buf.write_bytearray(s_data);
+  EXPECT_EQ(p_str_buf.read_bytearray(4), (std::vector<uint8_t>{'a', 'b', 'c', 'd'}));
+
+  std::wstring ws_data = L"efgh";
+  p_wstr_buf.write_bytearray(ws_data);
+  EXPECT_EQ(p_wstr_buf.read_bytearray(8), (std::vector<uint8_t>{(uint8_t)'e', 0, (uint8_t)'f', 0, (uint8_t)'g', 0, (uint8_t)'h', 0}));
 }
 
 TEST(BlookMemoryTests, MemoryIterator) {

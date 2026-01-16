@@ -196,7 +196,7 @@ Pointer::try_read_utf8_string(size_t length) const {
   return res;
 }
 
-std::expected<std::string, std::string>
+std::expected<std::wstring, std::string>
 Pointer::try_read_utf16_string(size_t length) const {
   std::wstring wres;
   Pointer current = *this;
@@ -208,16 +208,19 @@ Pointer::try_read_utf16_string(size_t length) const {
       break;
     wres += (wchar_t)*b;
   }
+  return wres;
+}
 
-  if (wres.empty())
-    return "";
+std::expected<void, std::string>
+Pointer::try_write_utf8_string(std::string_view str) const {
+  return try_write_bytearray(
+      std::span<const uint8_t>((const uint8_t *)str.data(), str.size() + 1));
+}
 
-  int size_needed = WideCharToMultiByte(CP_UTF8, 0, wres.c_str(),
-                                        (int)wres.size(), NULL, 0, NULL, NULL);
-  std::string strTo(size_needed, 0);
-  WideCharToMultiByte(CP_UTF8, 0, wres.c_str(), (int)wres.size(), &strTo[0],
-                      size_needed, NULL, NULL);
-  return strTo;
+std::expected<void, std::string>
+Pointer::try_write_utf16_string(std::wstring_view str) const {
+  return try_write_bytearray(std::span<const uint8_t>(
+      (const uint8_t *)str.data(), (str.size() + 1) * sizeof(wchar_t)));
 }
 
 std::expected<void, std::string>
@@ -265,11 +268,23 @@ std::string Pointer::read_utf8_string(size_t length) const {
   return *res;
 }
 
-std::string Pointer::read_utf16_string(size_t length) const {
+std::wstring Pointer::read_utf16_string(size_t length) const {
   auto res = try_read_utf16_string(length);
   if (!res)
     throw std::runtime_error(res.error());
   return *res;
+}
+
+void Pointer::write_utf8_string(std::string_view str) const {
+  auto res = try_write_utf8_string(str);
+  if (!res)
+    throw std::runtime_error(res.error());
+}
+
+void Pointer::write_utf16_string(std::wstring_view str) const {
+  auto res = try_write_utf16_string(str);
+  if (!res)
+    throw std::runtime_error(res.error());
 }
 
 void Pointer::write_bytearray(std::span<const uint8_t> data) const {
