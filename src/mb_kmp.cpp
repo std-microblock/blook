@@ -43,7 +43,7 @@ namespace blook {
         while (i < size) {
             // test if the page is accessible when switched page
             if ((size_t)(data + i) % 0x1000 == 0 || i == 0) {
-                if(!blook::Pointer(data+i).try_read<int>(0)) {
+                if(!blook::Pointer(data+i).try_read_u8()) {
                     i += 0x1000 - ((size_t)(data + i) % 0x1000);
                     continue;
                 }

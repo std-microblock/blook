@@ -2,6 +2,7 @@
 
 #include "blook/disassembly.h"
 
+#include "blook/memo.h"
 #include "blook/process.h"
 #include "zasm/formatter/formatter.hpp"
 #include <algorithm>
@@ -11,25 +12,6 @@
 #include <iostream>
 
 namespace blook {
-std::vector<uint8_t> Pointer::read(void *ptr, size_t size) const {
-  return try_read(ptr, size).value();
-}
-
-std::optional<std::vector<uint8_t>> Pointer::try_read(void *ptr,
-                                                      size_t size) const {
-  //        if (proc->is_self()) {
-  //            std::span<uint8_t> a{(uint8_t *) ((size_t) proc->h + offset),
-  //            size}; return std::vector<uint8_t>{a.begin(), a.end()};
-  //        }
-  const auto x = proc->read((void *)((size_t)ptr + _offset), size);
-  return x;
-}
-
-std::span<uint8_t> Pointer::read_leaked(void *ptr, size_t size) {
-  void *mem = malloc(size).data();
-  proc->read(mem, (uint8_t *)(_offset + (size_t)ptr), size);
-  return {(uint8_t *)mem, size};
-}
 
 Pointer::Pointer(std::shared_ptr<Process> proc, void *offset)
     : _offset((size_t)offset), proc(std::move(proc)) {}
@@ -65,7 +47,7 @@ MemoryPatch::MemoryPatch(Pointer ptr, std::vector<uint8_t> buffer)
 void MemoryPatch::swap() {
   const auto target = reinterpret_cast<void *>(ptr._offset);
   if (ptr.proc->is_self()) {
-    Pointer::protect_rwx(target, buffer.size());
+    ScopedSetMemoryRWX protector(ptr, buffer.size());
     std::vector<uint8_t> tmp(buffer.size());
     std::memcpy(tmp.data(), buffer.data(), buffer.size());
     std::memcpy(buffer.data(), target, buffer.size());
@@ -101,6 +83,8 @@ bool MemoryPatch::restore() {
 
 void *Pointer::data() const { return (void *)_offset; }
 
+bool Pointer::is_self() const { return proc && proc->is_self(); }
+
 std::optional<Function> Pointer::guess_function(size_t max_scan_size) {
   for (auto p = (size_t)_offset; p > (size_t)_offset - max_scan_size; p -= 1) {
     const auto v = (*(uint8_t *)p);
@@ -123,10 +107,10 @@ std::optional<Pointer> Pointer::offsets(const std::vector<size_t> &offsets,
   for (const auto &offset_next :
        std::span(offsets.begin(), offsets.end() - 1)) {
     ptr += offset_next * scale;
-    const auto data = ptr.read_leaked<size_t>();
-    if (!data)
+    auto res = ptr.try_read_struct<size_t>();
+    if (!res)
       return {};
-    ptr = (void *)*data.value();
+    ptr = Pointer(proc, (void *)*res);
   }
 
   return ptr.add(offsets.back() * scale);
@@ -148,7 +132,7 @@ Pointer::find_upwards(std::initializer_list<uint8_t> pattern,
     }
 
   else {
-    auto data = p.sub(max_scan_size).read(nullptr, max_scan_size);
+    auto data = p.sub(max_scan_size).read_bytearray(max_scan_size);
     for (size_t i = max_scan_size - pattern.size(); i > 0; i--) {
       if (memcmp(pattern.begin(), data.data() + i, pattern.size()) == 0) {
         return p.sub(max_scan_size - i);
@@ -169,10 +153,6 @@ MemoryRange Pointer::range_size(std::size_t size) {
   return MemoryRange{*this, size};
 }
 
-std::expected<void, std::string> Pointer::write(void *addr,
-                                                std::span<uint8_t> data) const {
-  return proc->write((void *)((size_t)addr + _offset), data);
-}
 
 MemoryRange::MemoryRange(std::shared_ptr<Process> proc, void *offset,
                          size_t size)
@@ -235,9 +215,6 @@ int32_t MemoryRange::crc32() const {
   }
 }
 
-void *Pointer::read(std::span<uint8_t> dest) const {
-  return proc->read(dest.data(), (void *)((size_t)_offset), dest.size());
-}
 std::optional<Pointer>
 MemoryRange::find_one_remote(std::vector<uint8_t> pattern) const {
   auto res =

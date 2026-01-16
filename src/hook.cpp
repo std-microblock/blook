@@ -6,6 +6,7 @@
 #include <zasm/formatter/formatter.hpp>
 
 #include "./platform/windows/hwbplib.hpp"
+#include "blook/memo.h"
 #include "zasm/x86/memory.hpp"
 
 namespace blook {
@@ -41,9 +42,8 @@ void InlineHook::install(bool try_trampoline) {
   const auto hookSize = serializer.getCodeSize();
 
   trampoline = Trampoline::make(target, hookSize, try_trampoline);
-
   patch = MemoryPatch{
-      Pointer{Process::self(), target},
+      Pointer(target),
       std::vector<uint8_t>(serializer.getCode(),
                            serializer.getCode() + serializer.getCodeSize())};
   if (!patch->patch())
@@ -87,9 +87,6 @@ Trampoline Trampoline::make(Pointer pCode, size_t minByteSize,
     occupiedBytes += instr->getLength();
   }
 
-  if (occupiedBytes < minByteSize) {
-    throw std::runtime_error(std::format("Failed to calculate occupied bytes"));
-  }
 
   auto addr_to_jump_back =
       (size_t)pCode + occupiedBytes; // Address to jump back to after trampoline
@@ -111,12 +108,12 @@ Trampoline Trampoline::make(Pointer pCode, size_t minByteSize,
   }
 
   serializer.serialize(program, (size_t)pCodePage);
-  if (auto res = pCodePage.write(
-          nullptr, std::span<uint8_t>((uint8_t *)serializer.getCode(),
-                                      serializer.getCodeSize()));
-      !res) {
+  try {
+    pCodePage.write_bytearray(std::span<const uint8_t>(
+        (const uint8_t *)serializer.getCode(), serializer.getCodeSize()));
+  } catch (const std::exception &e) {
     throw std::runtime_error(
-        std::format("Failed to write trampoline code: {}", res.error()));
+        std::format("Failed to write trampoline code: {}", e.what()));
   }
 
   t.pTrampoline = pCodePage;
@@ -168,6 +165,8 @@ static LONG blook_VectoredExceptionHandler(_EXCEPTION_POINTERS *ExceptionInfo) {
           VEHHookManager::VEHHookContext ctx(ExceptionInfo);
           bp.callback(ctx);
           if (ExceptionInfo->ContextRecord->Rip == origRip) {
+            std::println("Redirecting to trampoline at {:p}",
+                         bp.trampoline.pTrampoline.data());
             ExceptionInfo->ContextRecord->Rip =
                 (size_t)bp.trampoline.pTrampoline.data();
           }
@@ -179,7 +178,7 @@ static LONG blook_VectoredExceptionHandler(_EXCEPTION_POINTERS *ExceptionInfo) {
   } else if (code == EXCEPTION_BREAKPOINT) {
     if (manager.sw_breakpoints.contains(address)) {
       auto &bp = manager.sw_breakpoints.at(address);
-      Pointer(address).write(nullptr, bp.original_bytes);
+      Pointer(address).write_bytearray(bp.original_bytes);
       ExceptionInfo->ContextRecord->Rip = (DWORD_PTR)address;
 
       if (bp.callback) {
@@ -260,7 +259,7 @@ VEHHookManager::add_breakpoint(SoftwareBreakpoint bp,
   info.bp = bp;
   info.callback = callback;
 
-  auto original_byte = Pointer(bp.address).try_read<uint8_t>();
+  auto original_byte = Pointer(bp.address).try_read_u8();
   if (!original_byte) {
     throw std::runtime_error(
         "Failed to read original byte for software breakpoint.");
@@ -269,7 +268,10 @@ VEHHookManager::add_breakpoint(SoftwareBreakpoint bp,
   info.trampoline = Trampoline::make(bp.address, 1, true);
 
   uint8_t int3 = 0xCC;
-  if (!Pointer(bp.address).write(nullptr, std::span(&int3, 1))) {
+  try {
+    ScopedSetMemoryRWX protector(Pointer(bp.address), 1);
+    Pointer(bp.address).write_bytearray(std::span(&int3, 1));
+  } catch (...) {
     throw std::runtime_error("Failed to write INT3 for software breakpoint.");
   }
 
@@ -317,7 +319,7 @@ void VEHHookManager::remove_breakpoint(const VEHHookHandler &handler) {
       return;
     }
     auto &bp_info = sw_breakpoints.at(_swbp->address);
-    Pointer(_swbp->address).write(nullptr, bp_info.original_bytes);
+    Pointer(_swbp->address).write_bytearray(bp_info.original_bytes);
     sw_breakpoints.erase(_swbp->address);
   } else if (auto _pfbp = std::get_if<PagefaultBreakpointHandler>(&handler)) {
     if (!pf_breakpoints.contains(_pfbp->address)) {

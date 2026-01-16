@@ -85,14 +85,17 @@ std::optional<Thread::ThreadContextCapture> Thread::capture_context() {
   return ctx;
 };
 size_t Thread::stack(size_t offset) {
-  return proc->memo().read<size_t>(capture_context()
-                                       .value()
+  auto ctx = capture_context();
+  if (!ctx)
+    return 0;
+  return (proc->memo() +
 #ifdef BLOOK_ARCHITECTURE_X86_64
-                                       .rsp
+          ctx->rsp
 #elif defined(BLOOK_ARCHITECTURE_X86_32)
-                                       .esp
+          ctx->esp
 #endif
-                                   + offset);
+          + offset)
+      .read_u64();
 }
 bool Thread::resume() { return ResumeThread((HANDLE)handle.value()) != -1; }
 bool Thread::suspend() { return SuspendThread((HANDLE)handle.value()) != -1; }

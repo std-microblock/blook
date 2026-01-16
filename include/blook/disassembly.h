@@ -146,6 +146,7 @@ public:
         goto retry;
       } else {
         const auto size = r->getLength();
+
         current_value = InstructionCtx{r.value(), address};
         ptr += size;
         address += size;

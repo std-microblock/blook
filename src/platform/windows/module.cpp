@@ -74,27 +74,26 @@ std::optional<Function> Module::exports(const std::string &name) {
   } else {
     // parse EAT of the module
     auto mod = base();
-    auto pimageDosHeader = mod.read<IMAGE_DOS_HEADER>(0);
+    auto pimageDosHeader = mod.read_struct<IMAGE_DOS_HEADER>();
 
     auto pNtHeaders = mod + pimageDosHeader.e_lfanew;
-    auto NtHeaders = pNtHeaders.read<IMAGE_NT_HEADERS>(0);
+    auto NtHeaders = pNtHeaders.read_struct<IMAGE_NT_HEADERS>();
 
     auto exports = mod + NtHeaders.OptionalHeader
                              .DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT]
                              .VirtualAddress;
-    auto pExports = exports.read<IMAGE_EXPORT_DIRECTORY>(0);
+    auto pExports = exports.read_struct<IMAGE_EXPORT_DIRECTORY>();
 
     auto names = base() + pExports.AddressOfNames;
     auto ordinals = base() + pExports.AddressOfNameOrdinals;
     auto functions = base() + pExports.AddressOfFunctions;
     for (int i = 0; i < pExports.NumberOfNames; i++) {
-      auto nameAddr = names.read<uint32_t>(i * sizeof(uint32_t));
+      auto nameAddr = (names + i * sizeof(uint32_t)).read_u32();
       auto nameptr = base() + nameAddr;
-      auto namevec = nameptr.read(nullptr, MAX_PATH);
-      std::string namestr((char *)namevec.data());
+      auto namestr = nameptr.read_utf8_string(MAX_PATH);
       if (namestr == name) {
-        auto ordinal = ordinals.read<uint16_t>(i * sizeof(uint16_t));
-        auto funcAddr = functions.read<uint32_t>(ordinal * sizeof(uint32_t));
+        auto ordinal = (ordinals + i * sizeof(uint16_t)).read_u16();
+        auto funcAddr = (functions + ordinal * sizeof(uint32_t)).read_u32();
         auto func = exports + funcAddr;
         return Function(proc, (void *)func.data(), namestr);
       }
@@ -161,10 +160,10 @@ std::optional<MemoryRange> Module::section(const std::string &name) {
 
   auto mod = base();
 
-  auto pimageDosHeader = mod.read<IMAGE_DOS_HEADER>(0);
+  auto pimageDosHeader = mod.read_struct<IMAGE_DOS_HEADER>();
 
   auto pNtHeaders = mod + pimageDosHeader.e_lfanew;
-  auto NtHeaders = pNtHeaders.read<IMAGE_NT_HEADERS>(0);
+  auto NtHeaders = pNtHeaders.read_struct<IMAGE_NT_HEADERS>();
   /**
    * #define IMAGE_FIRST_SECTION( ntheader ) ((PIMAGE_SECTION_HEADER)        \
       ((ULONG_PTR)(ntheader) +                                            \
@@ -179,8 +178,8 @@ std::optional<MemoryRange> Module::section(const std::string &name) {
   for (WORD SectionIndex = 0;
        SectionIndex < NtHeaders.FileHeader.NumberOfSections; SectionIndex++) {
     IMAGE_SECTION_HEADER SectionHeader =
-        pSectionHeaders.read<IMAGE_SECTION_HEADER>(
-            SectionIndex * sizeof(IMAGE_SECTION_HEADER));
+        (pSectionHeaders + SectionIndex * sizeof(IMAGE_SECTION_HEADER))
+            .read_struct<IMAGE_SECTION_HEADER>();
 
     if (std::strcmp((char *)SectionHeader.Name, name.c_str()) == 0) {
       return MemoryRange(
@@ -216,10 +215,10 @@ std::optional<Function> Module::entry_point() {
   } else {
     auto mod = base();
 
-    auto pimageDosHeader = mod.read<IMAGE_DOS_HEADER>(0);
+    auto pimageDosHeader = mod.read_struct<IMAGE_DOS_HEADER>();
 
     auto pNtHeaders = mod + pimageDosHeader.e_lfanew;
-    auto NtHeaders = pNtHeaders.read<IMAGE_NT_HEADERS>(0);
+    auto NtHeaders = pNtHeaders.read_struct<IMAGE_NT_HEADERS>();
 
     return Function(proc,
                     (void *)((size_t)pModule +

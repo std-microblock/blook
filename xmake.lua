@@ -1,5 +1,3 @@
-set_xmakever("2.9.8")
-
 set_allowedplats("windows", "linux")
 add_rules("plugin.compile_commands.autoupdate", {outputdir = "build"})
 add_rules("mode.debug", "mode.release", "mode.releasedbg")
@@ -8,7 +6,7 @@ set_allowedmodes("debug", "release", "releasedbg")
 set_languages("c++23")
 set_encodings("utf-8")
 
-add_requires("zasm 2024.05.14", "gtest")
+add_requires("zasm", "gtest", "cpptrace")
 
 target("blook")
     set_kind("static")
@@ -44,7 +42,7 @@ target("blook-test")
     if is_plat("windows") then
         add_syslinks("user32")
     end
-    add_packages("gtest")
+    add_packages("gtest", "cpptrace")
     add_deps("blook")
 
     add_tests("default")

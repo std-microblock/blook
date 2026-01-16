@@ -10,9 +10,12 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <string>
 #include <string_view>
 #include <system_error>
+#include <type_traits>
 #include <vector>
+
 
 namespace blook {
 class Process;
@@ -38,6 +41,7 @@ protected:
 
 public:
   std::shared_ptr<Process> proc = nullptr;
+  bool is_self() const;
   static void *malloc_rwx(size_t size);
 
   static void protect_rwx(void *p, size_t size);
@@ -64,47 +68,120 @@ public:
   Pointer malloc(size_t size,
                  MemoryProtection protection = MemoryProtection::rw);
 
-  std::vector<uint8_t> read(void *ptr, size_t size) const;
-
-  std::span<uint8_t> read_leaked(void *ptr, size_t size);
-
-  std::expected<void, std::string> write(void *addr, std::span<uint8_t>) const;
-
   std::optional<Thread> create_thread(bool suspended = false);
 
-  template <typename Struct>
-  inline std::optional<Struct *> read_leaked(void *ptr = nullptr) {
-    const auto val = read_leaked(ptr, sizeof(Struct));
-    return reinterpret_cast<Struct *>(val.data());
+  // Read operations
+  /**
+   * @brief Try to read a byte array from the pointer.
+   * This function will check if the memory is readable before reading in try
+   * mode.
+   */
+  std::expected<std::vector<uint8_t>, std::string>
+  try_read_bytearray(size_t size) const;
+
+  std::expected<Pointer, std::string> try_read_pointer() const;
+
+  template <typename T>
+    requires std::is_standard_layout_v<T> && std::is_trivial_v<T>
+  std::expected<T, std::string> try_read_struct() const {
+    T val;
+    auto res = try_read_into(&val, sizeof(T));
+    if (!res)
+      return std::unexpected(res.error());
+    return val;
   }
 
-  template <typename Struct>
-  [[nodiscard]] inline Struct read(size_t ptr = 0) const {
-    auto data = try_read((void *)ptr, sizeof(Struct));
-    if (!data.has_value()) {
-      throw std::runtime_error("Failed to read memory");
-    }
-    return *reinterpret_cast<Struct *>(data.value().data());
+  std::expected<std::string, std::string>
+  try_read_utf8_string(size_t length = -1) const;
+
+  std::expected<std::string, std::string>
+  try_read_utf16_string(size_t length = -1) const;
+
+  // Write operations
+  std::expected<void, std::string>
+  try_write_bytearray(std::span<const uint8_t> data) const;
+
+  std::expected<void, std::string> try_write_pointer(Pointer ptr) const;
+
+  template <typename T>
+    requires std::is_standard_layout_v<T> && std::is_trivial_v<T>
+  std::expected<void, std::string> try_write_struct(const T &value) const {
+    return try_write_bytearray(
+        std::span<const uint8_t>((const uint8_t *)&value, sizeof(T)));
   }
 
-  template <typename Struct>
-  [[nodiscard]] inline auto write(Struct data, size_t ptr = 0) {
-    return write((void *)ptr, std::span((uint8_t *)&data, sizeof(Struct)));
+  // Raw read into buffer, avoids extra vector allocation
+  std::expected<void, std::string> try_read_into(void *dest, size_t size) const;
+  void read_into(void *dest, size_t size) const;
+
+  // Throwing wrappers
+  /**
+   * @brief Read a byte array from the pointer.
+   * Note: This function does NOT perform extra safety checks like
+   * try_read_bytearray. It is intended for high-performance use when memory is
+   * known to be valid.
+   */
+  std::vector<uint8_t> read_bytearray(size_t size) const;
+  Pointer read_pointer() const;
+
+  template <typename T>
+    requires std::is_standard_layout_v<T> && std::is_trivial_v<T>
+  T read_struct() const {
+    T val;
+    read_into(&val, sizeof(T));
+    return val;
   }
 
-  template <typename Struct>
-  [[nodiscard]] inline std::optional<Struct> try_read(size_t ptr = 0) const {
-    auto data = try_read((void *)ptr, sizeof(Struct));
-    if (!data.has_value()) {
-      return {};
-    }
-    return *reinterpret_cast<Struct *>(data.value().data());
+  std::string read_utf8_string(size_t length = -1) const;
+  std::string read_utf16_string(size_t length = -1) const;
+
+  void write_bytearray(std::span<const uint8_t> data) const;
+  void write_pointer(Pointer ptr) const;
+
+  template <typename T> void write_struct(const T &value) const {
+    auto res = try_write_struct<T>(value);
+    if (!res)
+      throw std::runtime_error(res.error());
   }
 
-  std::optional<std::vector<uint8_t>> try_read(void *ptr, size_t size) const;
+#define BLOOK_READ_WRITE_HELPER(type, name)                                    \
+  inline std::expected<type, std::string> try_read_##name() const {            \
+    type val;                                                                  \
+    auto res = try_read_into(&val, sizeof(type));                              \
+    if (!res)                                                                  \
+      return std::unexpected(res.error());                                     \
+    return val;                                                                \
+  }                                                                            \
+  inline type read_##name() const {                                            \
+    type val;                                                                  \
+    read_into(&val, sizeof(type));                                             \
+    return val;                                                                \
+  }                                                                            \
+  inline std::expected<void, std::string> try_write_##name(type val) const {   \
+    return try_write_struct<type>(val);                                        \
+  }                                                                            \
+  inline void write_##name(type val) const { write_struct<type>(val); }
 
-  // read to
-  void *read(std::span<uint8_t> dest) const;
+  BLOOK_READ_WRITE_HELPER(int8_t, s8)
+  BLOOK_READ_WRITE_HELPER(int16_t, s16)
+  BLOOK_READ_WRITE_HELPER(int32_t, s32)
+  BLOOK_READ_WRITE_HELPER(int64_t, s64)
+  BLOOK_READ_WRITE_HELPER(uint8_t, u8)
+  BLOOK_READ_WRITE_HELPER(uint16_t, u16)
+  BLOOK_READ_WRITE_HELPER(uint32_t, u32)
+  BLOOK_READ_WRITE_HELPER(uint64_t, u64)
+  BLOOK_READ_WRITE_HELPER(short, short)
+  BLOOK_READ_WRITE_HELPER(unsigned short, ushort)
+  BLOOK_READ_WRITE_HELPER(int, int)
+  BLOOK_READ_WRITE_HELPER(unsigned int, uint)
+  BLOOK_READ_WRITE_HELPER(float, float)
+  BLOOK_READ_WRITE_HELPER(double, double)
+#undef BLOOK_READ_WRITE_HELPER
+
+  template <typename T> T read_volatile() const {
+    // For now, same as read_struct.
+    return read_struct<T>();
+  }
 
   explicit Pointer(std::shared_ptr<Process> proc);
 
@@ -175,6 +252,11 @@ struct ScopedSetMemoryRWX {
   void *old_protect;
 
   ScopedSetMemoryRWX(void *ptr, size_t size);
+  ScopedSetMemoryRWX(const Pointer &p, size_t size)
+      : ScopedSetMemoryRWX(p.data(), size) {}
+  ScopedSetMemoryRWX(const ScopedSetMemoryRWX &) = delete;
+  ScopedSetMemoryRWX &operator=(const ScopedSetMemoryRWX &) = delete;
+  ScopedSetMemoryRWX(const MemoryRange &r);
 
   ~ScopedSetMemoryRWX();
 };
@@ -229,25 +311,40 @@ public:
 
     MemoryIteratorBuffered &operator=(MemoryIteratorBuffered &&) = default;
 
-    MemoryIteratorBuffered(Pointer ptr, size_t size) : ptr(ptr), size(size) {}
+    MemoryIteratorBuffered(Pointer ptr, size_t size) : ptr(ptr), size(size) {
+      this->cache = std::make_shared<CacheBuffer>();
+    }
     MemoryIteratorBuffered(Pointer ptr, size_t size,
                            std::shared_ptr<CacheBuffer> cache)
-        : ptr(ptr), size(size), cache(cache) {}
+        : ptr(ptr), size(size), cache(cache) {
+      if (!this->cache)
+        this->cache = std::make_shared<CacheBuffer>();
+    }
 
     inline MemoryIteratorBuffered &operator+=(size_t t) {
-      if (t * step > size) {
-        this->ptr = ptr + size;
+      size_t sub = t * step;
+      if (sub > size) {
+        ptr += size;
         size = 0;
       } else {
-        ptr += t * step;
-        size -= t * step;
+        ptr += sub;
+        size -= sub;
       }
-
       return *this;
     }
 
-    inline MemoryIteratorBuffered operator+(size_t t) {
-      return {ptr + t * step, std::max(size - t * step, (size_t)0), cache};
+    inline MemoryIteratorBuffered operator+(size_t t) const {
+      size_t sub = t * step;
+      size_t new_size = size;
+      Pointer new_ptr = ptr;
+      if (sub > size) {
+        new_ptr += size;
+        new_size = 0;
+      } else {
+        new_ptr += sub;
+        new_size -= sub;
+      }
+      return {new_ptr, new_size, cache};
     }
 
     inline MemoryIteratorBuffered &operator++() {
@@ -273,20 +370,36 @@ public:
     inline bool is_readable() const { return try_read().has_value(); }
 
     inline std::optional<uint8_t> try_read() const {
+      if (size == 0)
+        return {};
+
       if (cache->buffer
               .empty() || /* !(cache->offset ∈ [ptr, ptr+cache->size]) */
-          cache->offset > ptr.offset() ||
-          cache->offset + cache->buffer.size() <= ptr.offset()) {
-        cache->buffer.resize(std::min(bufSize, size));
-        if (!ptr.read(std::span(cache->buffer.data(), cache->buffer.size())))
+          ptr.offset() < cache->offset ||
+          ptr.offset() >= cache->offset + cache->buffer.size()) {
+        auto read_size = std::min(bufSize, size);
+        cache->buffer.resize(read_size);
+        auto res = ptr.try_read_into(cache->buffer.data(), read_size);
+        if (!res) {
+          cache->buffer.clear();
           return {};
+        }
         cache->offset = ptr.offset();
       }
 
-      return cache->buffer[ptr.offset() - cache->offset];
+      const size_t internal_offset = ptr.offset() - cache->offset;
+      if (internal_offset >= cache->buffer.size())
+        return {};
+
+      return cache->buffer[internal_offset];
     }
 
-    inline uint8_t operator*() { return try_read().value(); }
+    inline uint8_t operator*() {
+      auto val = try_read();
+      if (!val)
+        throw std::runtime_error("Failed to read memory through iterator");
+      return *val;
+    }
 
     using value_type = uint8_t;
     using difference_type = std::ptrdiff_t;
@@ -313,7 +426,8 @@ public:
   template <class Scanner = memory_scanner::mb_kmp>
   inline std::optional<Pointer>
   find_one(const std::vector<uint8_t> pattern) const {
-    std::optional<size_t> res = Scanner::searchOne((uint8_t*)_offset, _size, pattern);
+    std::optional<size_t> res =
+        Scanner::searchOne((uint8_t *)_offset, _size, pattern);
     return res.and_then([this](const auto val) {
       return std::optional<Pointer>(Pointer(this->proc, this->_offset + val));
     });

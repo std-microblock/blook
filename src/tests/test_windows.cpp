@@ -185,16 +185,108 @@ TEST(BlookMemoryTests, PointerOffsets) {
   s.slot[0x23].s->slot[0x12].s->slot[0x4].data = 114514;
 
   blook::Pointer ptr = (void *)&s;
-  auto final_ptr_opt = ptr.offsets({0x23, 0x12, 0x4});
+  auto final_ptr_opt = ptr.offsets(
+      {0x23 * sizeof(void *), 0x12 * sizeof(void *), 0x4 * sizeof(void *)}, 1);
 
   ASSERT_TRUE(final_ptr_opt.has_value());
-  auto value_opt = final_ptr_opt.value().try_read<size_t>();
+  auto value_res = final_ptr_opt.value().try_read_u64();
 
-  ASSERT_TRUE(value_opt.has_value());
-  EXPECT_EQ(value_opt.value(), 114514);
+  ASSERT_TRUE(value_res.has_value());
+  EXPECT_EQ(value_res.value(), 114514);
 
   delete s.slot[0x23].s->slot[0x12].s;
   delete s.slot[0x23].s;
+}
+
+TEST(BlookMemoryTests, NewReadWriteAPI) {
+  using namespace blook;
+  auto proc = Process::self();
+
+  // Test basic types
+  int32_t val32 = 0x12345678;
+  Pointer p32 = (void *)&val32;
+  EXPECT_EQ(p32.read_s32(), 0x12345678);
+  p32.write_s32(0x7fffffff);
+  EXPECT_EQ(val32, 0x7fffffff);
+
+  // Test struct
+  struct MyStruct {
+    int a;
+    float b;
+    char c[4];
+  };
+  MyStruct s{1, 2.0f, {'a', 'b', 'c', '\0'}};
+  Pointer ps = (void *)&s;
+  auto s2 = ps.read_struct<MyStruct>();
+  EXPECT_EQ(s2.a, 1);
+  EXPECT_EQ(s2.b, 2.0f);
+  EXPECT_STREQ(s2.c, "abc");
+
+  s2.a = 10;
+  ps.write_struct(s2);
+  EXPECT_EQ(s.a, 10);
+
+  // Test bytearray
+  std::vector<uint8_t> bytes = {0x01, 0x02, 0x03, 0x04};
+  Pointer pb = (void *)bytes.data();
+  auto bytes2 = pb.read_bytearray(4);
+  EXPECT_EQ(bytes2, bytes);
+
+  // Test strings
+  const char *utf8_str = "hello utf8";
+  Pointer p_utf8 = (void *)utf8_str;
+  EXPECT_EQ(p_utf8.read_utf8_string(), "hello utf8");
+
+  const wchar_t *utf16_str = L"hello utf16";
+  Pointer p_utf16 = (void *)utf16_str;
+  EXPECT_EQ(p_utf16.read_utf16_string(), "hello utf16");
+
+  // Test try_read/try_write
+  auto res = p32.try_read_s32();
+  ASSERT_TRUE(res.has_value()) << res.error();
+  EXPECT_EQ(*res, 0x7fffffff);
+
+  Pointer invalid_ptr = (void *)0x1234; // Likely invalid
+  auto res_invalid = invalid_ptr.try_read_s32();
+  EXPECT_FALSE(res_invalid.has_value());
+
+  // Test read/write pointer
+  int target_val = 123;
+  void *target_ptr = &target_val;
+  void *storage = nullptr;
+  Pointer p_storage = (void *)&storage;
+  p_storage.write_pointer(Pointer(target_ptr));
+  EXPECT_EQ(storage, target_ptr);
+  Pointer read_ptr = p_storage.read_pointer();
+  EXPECT_EQ(read_ptr.data(), target_ptr);
+  EXPECT_EQ(read_ptr.read_s32(), 123);
+}
+
+TEST(BlookMemoryTests, MemoryIterator) {
+  using namespace blook;
+  std::vector<uint8_t> data = {0x11, 0x22, 0x33, 0x44, 0x55};
+  Pointer p = (void *)data.data();
+  MemoryRange range(p, data.size());
+
+  auto it = range.begin();
+  EXPECT_EQ(*it, 0x11);
+  ++it;
+  EXPECT_EQ(*it, 0x22);
+
+  std::vector<uint8_t> collected;
+  for (auto b : range) {
+    collected.push_back(b);
+  }
+  EXPECT_EQ(collected, data);
+
+  // Test buffered reading
+  using SmallIterator = MemoryRange::MemoryIteratorBuffered<2>;
+  SmallIterator sit(p, data.size());
+  EXPECT_EQ(*sit, 0x11);
+  sit++;
+  EXPECT_EQ(*sit, 0x22);
+  sit++;
+  EXPECT_EQ(*sit, 0x33);
 }
 
 TEST(BlookAnalysisTests, XRef) {
@@ -378,26 +470,26 @@ TEST(VEHHookTest, HookMultipleFunctions) {
 }
 
 TEST(VEHHookTest, SoftwareBreakpoint) {
-    bool called = false;
-    auto handler = blook::VEHHookManager::instance().add_breakpoint(
-        blook::VEHHookManager::SoftwareBreakpoint{
-            .address = (void *)veh_test_target_func},
-        [&](blook::VEHHookManager::VEHHookContext &ctx) { called = true; });
+  bool called = false;
+  auto handler = blook::VEHHookManager::instance().add_breakpoint(
+      blook::VEHHookManager::SoftwareBreakpoint{
+          .address = (void *)veh_test_target_func},
+      [&](blook::VEHHookManager::VEHHookContext &ctx) { called = true; });
 
-    ASSERT_TRUE(
-        std::holds_alternative<blook::VEHHookManager::SoftwareBreakpointHandler>(
-            handler));
+  ASSERT_TRUE(
+      std::holds_alternative<blook::VEHHookManager::SoftwareBreakpointHandler>(
+          handler));
 
-    veh_test_target_func(3, 5);
+  veh_test_target_func(3, 5);
 
-    ASSERT_TRUE(called);
+  ASSERT_TRUE(called);
 
-    blook::VEHHookManager::instance().remove_breakpoint(handler);
+  blook::VEHHookManager::instance().remove_breakpoint(handler);
 
-    called = false;
-    auto result = veh_test_target_func(2, 4);
-    EXPECT_EQ(result, 2 * 4 + 42);
-    ASSERT_FALSE(called);
+  called = false;
+  auto result = veh_test_target_func(2, 4);
+  EXPECT_EQ(result, 2 * 4 + 42);
+  ASSERT_FALSE(called);
 }
 
 // TEST(VEHHookTest, PagefaultBreakpoint) {
