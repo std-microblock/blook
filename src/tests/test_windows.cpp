@@ -198,6 +198,35 @@ TEST(BlookMemoryTests, PointerOffsets) {
   delete s.slot[0x23].s;
 }
 
+TEST(BlookMemoryTests, ProcessMemoryAPI) {
+  using namespace blook;
+  auto proc = Process::self();
+
+  // Test malloc/free
+  void *ptr = proc->malloc(1024, Process::MemoryProtection::rw);
+  ASSERT_NE(ptr, nullptr);
+  EXPECT_TRUE(proc->check_valid(ptr));
+  EXPECT_TRUE(proc->check_readable(ptr, 1024));
+  EXPECT_TRUE(proc->check_writable(ptr, 1024));
+
+  int val = 123456;
+  proc->write(ptr, &val, sizeof(val));
+  int val2 = 0;
+  proc->read(&val2, ptr, sizeof(val2));
+  EXPECT_EQ(val, val2);
+
+  proc->set_memory_protect(ptr, 1024, Process::MemoryProtection::Read);
+  EXPECT_FALSE(proc->check_writable(ptr, 1024));
+
+  proc->free(ptr);
+  EXPECT_FALSE(proc->check_valid(ptr));
+
+  // Test near malloc
+  void *near_ptr = proc->malloc(1024, Process::MemoryProtection::rw, (void*)0x10000);
+  ASSERT_NE(near_ptr, nullptr);
+  proc->free(near_ptr);
+}
+
 TEST(BlookMemoryTests, NewReadWriteAPI) {
   using namespace blook;
   auto proc = Process::self();
@@ -281,6 +310,17 @@ TEST(BlookMemoryTests, NewReadWriteAPI) {
   std::wstring ws_data = L"efgh";
   p_wstr_buf.write_bytearray(ws_data);
   EXPECT_EQ(p_wstr_buf.read_bytearray(8), (std::vector<uint8_t>{(uint8_t)'e', 0, (uint8_t)'f', 0, (uint8_t)'g', 0, (uint8_t)'h', 0}));
+}
+
+TEST(BlookMemoryTests, ScopedSetMemoryRWX) {
+  using namespace blook;
+  int val = 123;
+  Pointer p = &val;
+  {
+    ScopedSetMemoryRWX scoped(p, sizeof(val));
+    p.write_s32(456);
+  }
+  EXPECT_EQ(val, 456);
 }
 
 TEST(BlookMemoryTests, MemoryIterator) {

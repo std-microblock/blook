@@ -46,8 +46,8 @@ MemoryPatch::MemoryPatch(Pointer ptr, std::vector<uint8_t> buffer)
 
 void MemoryPatch::swap() {
   const auto target = reinterpret_cast<void *>(ptr._offset);
+  ScopedSetMemoryRWX protector(ptr, buffer.size());
   if (ptr.proc->is_self()) {
-    ScopedSetMemoryRWX protector(ptr, buffer.size());
     std::vector<uint8_t> tmp(buffer.size());
     std::memcpy(tmp.data(), buffer.data(), buffer.size());
     std::memcpy(buffer.data(), target, buffer.size());
@@ -55,7 +55,7 @@ void MemoryPatch::swap() {
   } else {
     std::vector<uint8_t> tmp(buffer.size());
     ptr.proc->read(tmp.data(), target, buffer.size());
-    if (!ptr.proc->write(target, buffer))
+    if (!ptr.proc->try_write(target, buffer.data(), buffer.size()))
       throw std::runtime_error("Failed to write memory");
     buffer = std::move(tmp);
   }

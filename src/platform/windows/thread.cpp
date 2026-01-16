@@ -1,4 +1,6 @@
 #include "blook/thread.h"
+#include "blook/memo.h"
+#include "blook/process.h"
 #include "windows.h"
 
 namespace blook {
@@ -88,13 +90,13 @@ size_t Thread::stack(size_t offset) {
   auto ctx = capture_context();
   if (!ctx)
     return 0;
-  return (proc->memo() +
+  return Pointer(proc,
 #ifdef BLOOK_ARCHITECTURE_X86_64
-          ctx->rsp
+                 (void*)(ctx->rsp + offset)
 #elif defined(BLOOK_ARCHITECTURE_X86_32)
-          ctx->esp
+                 (void*)(ctx->esp + offset)
 #endif
-          + offset)
+                 )
       .read_u64();
 }
 bool Thread::resume() { return ResumeThread((HANDLE)handle.value()) != -1; }

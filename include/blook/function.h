@@ -1,5 +1,6 @@
 #pragma once
 #include "blook/memo.h"
+#include "blook/process.h"
 #include "blook/utils.h"
 
 #include <cstddef>
@@ -122,7 +123,7 @@ public:
     }
 
     Serializer serializer;
-    void *pCodePage = Pointer::malloc_rwx(utils::estimateCodeSize(program));
+    void *pCodePage = Process::self()->malloc(utils::estimateCodeSize(program), Process::MemoryProtection::rwx);
     if (auto err =
             serializer.serialize(program, reinterpret_cast<int64_t>(pCodePage));
         err != zasm::ErrorCode::None)

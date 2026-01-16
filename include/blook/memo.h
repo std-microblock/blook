@@ -17,6 +17,8 @@
 #include <vector>
 
 
+#include "process.h"
+
 namespace blook {
 class Process;
 
@@ -40,33 +42,22 @@ protected:
   friend MemoryPatch;
 
 public:
+  using MemoryProtection = Process::MemoryProtection;
+
   std::shared_ptr<Process> proc = nullptr;
   bool is_self() const;
-  static void *malloc_rwx(size_t size);
-
-  static void protect_rwx(void *p, size_t size);
-
-  static void *malloc_near_rwx(void *near, size_t size);
 
   bool operator==(const Pointer &other) const = default;
-
-  enum class MemoryProtection {
-    Read = 0x0001,
-    Write = 0x0010,
-    Execute = 0x0100,
-    ReadWrite = Read | Write,
-    ReadWriteExecute = Read | Write | Execute,
-    ReadExecute = Read | Execute,
-    rw = ReadWrite,
-    rwx = ReadWriteExecute,
-    rx = ReadExecute
-  };
 
   Pointer malloc(size_t size, void *near,
                  MemoryProtection protection = MemoryProtection::rw);
 
   Pointer malloc(size_t size,
                  MemoryProtection protection = MemoryProtection::rw);
+
+  Pointer malloc_rx_near_this(size_t size);
+
+  void free(size_t size = 0);
 
   std::optional<Thread> create_thread(bool suspended = false);
 
@@ -287,13 +278,13 @@ public:
 };
 
 struct ScopedSetMemoryRWX {
-  void *ptr;
+  Pointer ptr;
   size_t size;
-  void *old_protect;
+  Process::MemoryProtection old_protect;
 
-  ScopedSetMemoryRWX(void *ptr, size_t size);
-  ScopedSetMemoryRWX(const Pointer &p, size_t size)
-      : ScopedSetMemoryRWX(p.data(), size) {}
+  ScopedSetMemoryRWX(Pointer ptr, size_t size);
+  ScopedSetMemoryRWX(void *ptr, size_t size)
+      : ScopedSetMemoryRWX(Pointer(ptr), size) {}
   ScopedSetMemoryRWX(const ScopedSetMemoryRWX &) = delete;
   ScopedSetMemoryRWX &operator=(const ScopedSetMemoryRWX &) = delete;
   ScopedSetMemoryRWX(const MemoryRange &r);

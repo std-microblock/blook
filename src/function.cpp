@@ -54,7 +54,7 @@ void *Function::into_safe_function_pointer(void *func, bool thread_safety) {
   auto program = Program(utils::compileMachineMode());
   auto a = x86::Assembler(program);
 
-  auto ptr = ((Pointer)Pointer::malloc_near_rwx(func, 300));
+  auto ptr = Pointer(Process::self(), Process::self()->malloc(300, Process::MemoryProtection::rwx, func));
   ptr.reassembly([=](auto a) {
 #ifdef BLOOK_ARCHITECTURE_X86_64
        auto sp = x86::rsp;

@@ -1,15 +1,17 @@
 #pragma once
+
 #include "ctype.h"
 #include "zasm/base/mode.hpp"
 #include "zasm/decoder/decoder.hpp"
 #include "zasm/zasm.hpp"
 
+#ifndef CLASS_MOVE_ONLY
 #define CLASS_MOVE_ONLY(classname)                                             \
-  classname() = delete;                                                        \
-  classname(classname &) = delete;                                             \
-  classname &operator=(classname &) = delete;                                  \
+  classname(const classname &) = delete;                                       \
+  classname &operator=(const classname &) = delete;                            \
   classname(classname &&) noexcept = default;                                  \
   classname &operator=(classname &&) noexcept = default;
+#endif
 
 
 #if defined(__x86_64__) || defined(_M_X64)
