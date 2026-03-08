@@ -66,50 +66,37 @@ hook->install([=](int64_t a) -> int64_t {
 
 ## Getting started
 
-### Compile
+### Use with xmake
 
-Clone the repository to local, and build it with cmake!
+```xmake
+package("blook")
+    set_description("A modern C++ library for hacking.")
+    set_license("GPL-3.0")
 
-### Using in a CMake project
+    add_urls("https://github.com/std-microblock/blook.git")
 
-### a) git submodule
+    add_configs("shared", {description = "Build shared library.", default = false, type = "boolean", readonly = true})
 
-First, add the repo as submodule.
+    if is_plat("windows") then
+        add_syslinks("advapi32")
+    end
 
-```shell
-git submodule add https://github.com/MicroCBer/blook
-git submodule update --init --recursive
+    add_deps("zasm")
+
+    on_install("windows", function (package)
+        import("package.tools.xmake").install(package, {}, {target = "blook"})
+    end)
 ```
 
-Then, import it and add it to your project in `CMakeLists.txt`
+Save this to deps/blook.lua, and use blook like:
+```xmake
 
-```cmake
-add_subdirectory(external/blook)
-target_link_libraries(your_target blook)
+includes("deps/blook.lua")
+add_requires("blook")
+
+target(...)
+    add_packages("blook")
 ```
-
-### b) CMake FetchContent
-
-Add those lines into your `CMakeLists.txt`
-
-```cmake
-include(FetchContent)
-
-###### Fetch blook from GitHub #####
-FetchContent_Declare(
-        blook
-        GIT_REPOSITORY https://github.com/MicroCBer/blook
-        GIT_TAG origin/main
-)
-FetchContent_MakeAvailable(blook)
-####################################
-
-target_link_libraries(your_target blook)
-```
-
-### Manual installation
-
-It's strongly discouraged to use the project without CMake, but it should be possible.
 
 ## Platforms
 
