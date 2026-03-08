@@ -821,6 +821,27 @@ TEST(BlookReassemblyTests, ReassemblyWithTrampolineCounterFunction) {
       << "Original code should be restored";
 }
 
+TEST(BlookMemoryTests, PatternParsing) {
+  auto process = blook::Process::self();
+  ASSERT_NE(process, nullptr);
+
+  const uint8_t test_data[] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11, 0x22};
+  auto range = blook::MemoryRange(process, (void*)test_data, sizeof(test_data));
+
+  EXPECT_TRUE(range.find_one_pattern("aabbcc").has_value());
+  EXPECT_TRUE(range.find_one_pattern("aa bb cc").has_value());
+  EXPECT_TRUE(range.find_one_pattern("aa,bb,cc").has_value());
+  EXPECT_TRUE(range.find_one_pattern("0xaa, 0xbb, 0xcc").has_value());
+  EXPECT_TRUE(range.find_one_pattern("AABBCC").has_value());
+  EXPECT_TRUE(range.find_one_pattern("AA BB CC DD").has_value());
+
+  EXPECT_FALSE(range.find_one_pattern("12 34 56").has_value());
+
+  EXPECT_TRUE(range.find_one_pattern("eeff").has_value());
+  EXPECT_TRUE(range.find_one_pattern("ff1122").has_value());
+  EXPECT_TRUE(range.find_one_pattern("aa??cc").has_value());
+}
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();

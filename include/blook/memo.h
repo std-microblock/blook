@@ -2,6 +2,7 @@
 
 #include "concepts.h"
 #include "memory_scanner/mb_kmp.h"
+#include "pattern_parser.h"
 #include "zasm/zasm.hpp"
 #include <deque>
 #include <expected>
@@ -471,11 +472,19 @@ public:
   template <class Scanner = memory_scanner::mb_kmp>
   inline std::optional<Pointer>
   find_one(const std::vector<uint8_t> pattern) const {
-    std::optional<size_t> res =
-        Scanner::searchOne((uint8_t *)_offset, _size, pattern);
-    return res.and_then([this](const auto val) {
-      return std::optional<Pointer>(Pointer(this->proc, this->_offset + val));
-    });
+    if (this->is_self()) {
+      std::optional<size_t> res =
+          Scanner::searchOne((uint8_t *)_offset, _size, pattern);
+      return res.and_then([this](const auto val) {
+        return std::optional<Pointer>(Pointer(this->proc, this->_offset + val));
+      });
+    } else {
+      auto res =
+          std::search(this->begin(), this->end(), pattern.begin(), pattern.end());
+      if (res == this->end())
+        return {};
+      return res.ptr;
+    }
   }
 
   template <class Scanner = memory_scanner::mb_kmp>
@@ -510,8 +519,27 @@ public:
     return find_one(std::vector<uint8_t>(sv.begin(), sv.end()));
   }
 
-  std::optional<Pointer> find_one_remote(std::vector<uint8_t> pattern) const;
+  // Pattern 搜索 API - 支持多种格式
+  // 支持格式：
+  // - "aabbcc"
+  // - "aa bb cc"
+  // - "aa,bb,cc"
+  // - "0xaa, 0xbb, 0xcc"
+  // - "aa??12" (通配符，?? 会被转换为 0xBC)
+  template <class Scanner = memory_scanner::mb_kmp>
+  inline std::optional<Pointer> find_one_pattern(std::string_view pattern_str) const {
+    auto pattern = parse_pattern(pattern_str);
+    auto bytes = pattern_to_bytes(pattern);
+    return find_one<Scanner>(bytes);
+  }
 
+  // 已废弃：请使用 find_one，它会自动判断本地/远程
+  [[deprecated("Use find_one instead, it automatically detects local/remote")]]
+  inline std::optional<Pointer> find_one_remote(std::vector<uint8_t> pattern) const {
+    return find_one(pattern);
+  }
+
+  [[deprecated("Use find_one instead, it automatically detects local/remote")]]
   inline auto find_one_remote(std::string_view sv) const {
     return find_one_remote(std::vector<uint8_t>(sv.begin(), sv.end()));
   }

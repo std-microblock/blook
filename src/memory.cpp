@@ -254,14 +254,6 @@ int32_t MemoryRange::crc32() const {
   }
 }
 
-std::optional<Pointer>
-MemoryRange::find_one_remote(std::vector<uint8_t> pattern) const {
-  auto res =
-      std::search(this->begin(), this->end(), pattern.begin(), pattern.end());
-  if (res == this->end())
-    return {};
-  return res.ptr;
-}
 MemoryPatch Pointer::reassembly_thread_pause() {
   return reassembly([](zasm::x86::Assembler& a) {
 #if defined(BLOOK_ARCHITECTURE_X86_64) || defined(BLOOK_ARCHITECTURE_X86_32)
