@@ -36,47 +36,31 @@ blook 是一个现代化的 C++ 库，用于 Windows 平台上的内存操作、
 - **类型安全的内存读写**: 支持各种基本类型和结构体
 - **智能内存分配器**: 高效的内存分配和管理
 
-### 支持平台
-
-- Windows x86/x64 ✅
-- Linux (开发中) 🚧
-
 ## 快速开始
 
 ### 安装
 
-#### 方式 1: CMake 子模块
-
-```bash
-git submodule add https://github.com/MicroCBer/blook
-git submodule update --init --recursive
-```
-
-在 `CMakeLists.txt` 中添加:
-
-```cmake
-add_subdirectory(external/blook)
-target_link_libraries(your_target blook)
-```
-
-#### 方式 2: CMake FetchContent
-
-```cmake
-include(FetchContent)
-
-FetchContent_Declare(
-    blook
-    GIT_REPOSITORY https://github.com/MicroCBer/blook
-    GIT_TAG origin/main
-)
-FetchContent_MakeAvailable(blook)
-
-target_link_libraries(your_target blook)
-```
-
-#### 方式 3: xmake
+#### 使用 xmake 安装
 
 ```lua
+package("blook")
+    set_description("A modern C++ library for hacking.")
+    set_license("GPL-3.0")
+
+    add_urls("https://github.com/std-microblock/blook.git")
+
+    add_configs("shared", {description = "Build shared library.", default = false, type = "boolean", readonly = true})
+
+    if is_plat("windows") then
+        add_syslinks("advapi32")
+    end
+
+    add_deps("zasm")
+
+    on_install("windows", function (package)
+        import("package.tools.xmake").install(package, {}, {target = "blook"})
+    end)
+
 add_requires("blook")
 target("your_target")
     add_packages("blook")
