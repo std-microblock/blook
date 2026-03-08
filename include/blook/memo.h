@@ -41,19 +41,17 @@ protected:
   friend MemoryPatch;
 
 public:
-  using MemoryProtection = Process::MemoryProtection;
-
   std::shared_ptr<Process> proc = nullptr;
   bool is_self() const;
   bool is_valid() const;
 
   bool operator==(const Pointer &other) const = default;
 
-  Pointer malloc(size_t size, void *near,
-                 MemoryProtection protection = MemoryProtection::rw);
+  bool operator==(std::nullptr_t) const { return _offset == 0; }
 
-  Pointer malloc(size_t size,
-                 MemoryProtection protection = MemoryProtection::rw);
+  Pointer malloc(size_t size, void *near, Protect protection = Protect::rw);
+
+  Pointer malloc(size_t size, Protect protection = Protect::rw);
 
   Pointer malloc_rx_near_this(size_t size);
 
@@ -227,13 +225,15 @@ public:
 
   operator size_t() const { return (size_t)this->_offset; }
 
+  operator void *() const { return (void *)this->_offset; }
+
+  [[nodiscard]] inline void *data() const { return (void *)_offset; }
+
+  [[nodiscard]] inline size_t offset() const { return _offset; }
+
   inline Pointer absolute(const auto &t) const { return {proc, (void *)t}; }
 
   Function as_function();
-
-  [[nodiscard]] void *data() const;
-
-  [[nodiscard]] inline size_t offset() const { return _offset; }
 
   // Pointer operations
   inline Pointer add(const auto &t) const {
@@ -257,7 +257,7 @@ public:
   }
 
   [[nodiscard]] MemoryPatch
-      reassembly(std::function<void(zasm::x86::Assembler&)>);
+      reassembly(std::function<void(zasm::x86::Assembler &)>);
 
   [[nodiscard]] MemoryPatch reassembly_thread_pause();
 
@@ -266,10 +266,10 @@ public:
   // Original location gets a jump to the new memory
   [[nodiscard]] std::expected<MemoryPatch, std::string>
   try_reassembly_with_trampoline(
-      std::function<void(zasm::x86::Assembler&)> func);
+      std::function<void(zasm::x86::Assembler &)> func);
 
   [[nodiscard]] MemoryPatch
-  reassembly_with_trampoline(std::function<void(zasm::x86::Assembler&)> func);
+  reassembly_with_trampoline(std::function<void(zasm::x86::Assembler &)> func);
 
   std::optional<Function> guess_function(size_t max_scan_size = 50000);
 
@@ -296,7 +296,7 @@ public:
 struct ScopedSetMemoryRWX {
   Pointer ptr;
   size_t size;
-  Process::MemoryProtection old_protect;
+  Protect old_protect;
 
   ScopedSetMemoryRWX(Pointer ptr, size_t size);
   ScopedSetMemoryRWX(const ScopedSetMemoryRWX &) = delete;
@@ -528,10 +528,10 @@ public:
   // If the new code is smaller, pad with NOPs
   // If the new code is larger, return unexpected
   [[nodiscard]] std::expected<MemoryPatch, std::string>
-  try_reassembly_with_padding(std::function<void(zasm::x86::Assembler&)> func);
+  try_reassembly_with_padding(std::function<void(zasm::x86::Assembler &)> func);
 
   [[nodiscard]] MemoryPatch
-  reassembly_with_padding(std::function<void(zasm::x86::Assembler&)> func);
+  reassembly_with_padding(std::function<void(zasm::x86::Assembler &)> func);
 };
 
 static_assert(std::sentinel_for<decltype(std::declval<MemoryRange>().begin()),

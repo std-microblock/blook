@@ -2,6 +2,7 @@
 
 #include "platform_types.h"
 #include "utils.h"
+#include "protect.h"
 #include <cstdint>
 #include <expected>
 #include <filesystem>
@@ -18,38 +19,10 @@ class Pointer;
 class Module;
 struct Thread;
 class Process;
-
-using Allocator = struct ProcessAllocator {
-  explicit ProcessAllocator(std::shared_ptr<Process> proc);
-
-  std::optional<Pointer> allocate(size_t size, void *nearAddr = nullptr);
-
-  void deallocate(Pointer addr);
-
-private:
-  struct AllocatedPageData {
-    size_t size;
-    std::map<void *, size_t> allocated;
-  };
-  std::map<void *, AllocatedPageData> allocatedPages;
-  std::shared_ptr<Process> proc;
-};
+class ProcessAllocator;
 
 class Process : public std::enable_shared_from_this<Process> {
 public:
-  enum class MemoryProtection {
-    None = 0,
-    Read = 0x0001,
-    Write = 0x0010,
-    Execute = 0x0100,
-    ReadWrite = Read | Write,
-    ReadWriteExecute = Read | Write | Execute,
-    ReadExecute = Read | Execute,
-    rw = ReadWrite,
-    rwx = ReadWriteExecute,
-    rx = ReadExecute
-  };
-
 #ifdef _WIN32
 
   explicit Process(HANDLE h);
@@ -64,9 +37,10 @@ protected:
   WIN_ONLY(HANDLE h = nullptr);
   friend Module;
   friend Pointer;
+  friend ProcessAllocator;
 
   std::shared_ptr<Pointer> _memo_ptr;
-  std::shared_ptr<struct ProcessAllocator> _allocator_ptr;
+  std::shared_ptr<ProcessAllocator> _allocator_ptr;
 
 public:
   CLASS_MOVE_ONLY(Process)
@@ -91,23 +65,23 @@ public:
                                                       size_t size) const;
   bool check_writable(void *addr, size_t size) const;
 
-  std::expected<MemoryProtection, std::string>
+  std::expected<Protect, std::string>
   try_set_memory_protect(void *addr, size_t size,
-                         MemoryProtection protect) const;
-  MemoryProtection set_memory_protect(void *addr, size_t size,
-                                      MemoryProtection protect) const;
+                         Protect protect) const;
+  Protect set_memory_protect(void *addr, size_t size,
+                                      Protect protect) const;
 
   std::expected<bool, std::string> try_check_valid(void *addr) const;
   bool check_valid(void *addr) const;
 
-  std::expected<void *, std::string>
-  try_malloc(size_t size, MemoryProtection protect = MemoryProtection::rw,
-             void *nearAddr = nullptr) const;
-  void *malloc(size_t size, MemoryProtection protect = MemoryProtection::rw,
-               void *nearAddr = nullptr) const;
+  std::expected<Pointer, std::string>
+  try_malloc(size_t size, Protect protect = Protect::rw,
+             void *nearAddr = nullptr);
+  Pointer malloc(size_t size, Protect protect = Protect::rw,
+                 void *nearAddr = nullptr);
 
-  std::expected<void, std::string> try_free(void *addr, size_t size = 0) const;
-  void free(void *addr, size_t size = 0) const;
+  std::expected<void, std::string> try_free(void *addr, size_t size = 0);
+  void free(void *addr, size_t size = 0);
 
   [[nodiscard]] std::optional<std::shared_ptr<Module>>
   module(const std::string &name);
@@ -126,7 +100,7 @@ public:
 
   Pointer memo();
 
-  struct ProcessAllocator& allocator();
+  ProcessAllocator& allocator();
 
   std::vector<Thread> threads();
 

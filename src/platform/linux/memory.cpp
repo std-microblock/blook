@@ -32,22 +32,22 @@ void Pointer::protect_rwx(void *p, size_t size) {
 
 void *Pointer::malloc_near_rwx(void *targetAddr, size_t size) {
     return Process::self()->memo().malloc(size, targetAddr,
-                                          MemoryProtection::rwx);
+                                          Protect::rwx);
 }
 
-void *Pointer::malloc(size_t size, Pointer::MemoryProtection protection) {
+void *Pointer::malloc(size_t size, Pointer::Protect protection) {
     int prot_flags = 0;
     switch (protection) {
-        case MemoryProtection::Read:
+        case Protect::Read:
             prot_flags = PROT_READ;
             break;
-        case MemoryProtection::ReadWrite:
+        case Protect::ReadWrite:
             prot_flags = PROT_READ | PROT_WRITE;
             break;
-        case MemoryProtection::ReadWriteExecute:
+        case Protect::ReadWriteExecute:
             prot_flags = PROT_READ | PROT_WRITE | PROT_EXEC;
             break;
-        case MemoryProtection::ReadExecute:
+        case Protect::ReadExecute:
             prot_flags = PROT_READ | PROT_EXEC;
             break;
         default:
@@ -62,20 +62,20 @@ void *Pointer::malloc(size_t size, Pointer::MemoryProtection protection) {
 Pointer::Pointer(std::shared_ptr<Process> proc) : proc(std::move(proc)) {}
 
 void *Pointer::malloc(size_t size, void *nearby,
-                      Pointer::MemoryProtection protection) {
+                      Pointer::Protect protection) {
     long pagesize = sysconf(_SC_PAGESIZE);
     int prot_flags = 0;
     switch (protection) {
-        case MemoryProtection::Read:
+        case Protect::Read:
             prot_flags = PROT_READ;
             break;
-        case MemoryProtection::ReadWrite:
+        case Protect::ReadWrite:
             prot_flags = PROT_READ | PROT_WRITE;
             break;
-        case MemoryProtection::ReadWriteExecute:
+        case Protect::ReadWriteExecute:
             prot_flags = PROT_READ | PROT_WRITE | PROT_EXEC;
             break;
-        case MemoryProtection::ReadExecute:
+        case Protect::ReadExecute:
             prot_flags = PROT_READ | PROT_EXEC;
             break;
         default:

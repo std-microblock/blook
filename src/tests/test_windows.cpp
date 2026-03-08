@@ -203,8 +203,8 @@ TEST(BlookMemoryTests, ProcessMemoryAPI) {
   auto proc = Process::self();
 
   // Test malloc/free
-  void *ptr = proc->malloc(1024, Process::MemoryProtection::rw);
-  ASSERT_NE(ptr, nullptr);
+  auto ptr = proc->malloc(1024, Protect::rw);
+  ASSERT_NE((void*)ptr, nullptr);
   EXPECT_TRUE(proc->check_valid(ptr));
   EXPECT_TRUE(proc->check_readable(ptr, 1024));
   EXPECT_TRUE(proc->check_writable(ptr, 1024));
@@ -215,16 +215,15 @@ TEST(BlookMemoryTests, ProcessMemoryAPI) {
   proc->read(&val2, ptr, sizeof(val2));
   EXPECT_EQ(val, val2);
 
-  proc->set_memory_protect(ptr, 1024, Process::MemoryProtection::Read);
+  proc->set_memory_protect(ptr, 1024, Protect::Read);
   EXPECT_FALSE(proc->check_writable(ptr, 1024));
 
   proc->free(ptr);
   EXPECT_FALSE(proc->check_valid(ptr));
 
   // Test near malloc
-  void *near_ptr =
-      proc->malloc(1024, Process::MemoryProtection::rw, (void *)0x10000);
-  ASSERT_NE(near_ptr, nullptr);
+  auto near_ptr = proc->malloc(1024, Protect::rw, (void *)0x10000);
+  ASSERT_NE((void*)near_ptr, nullptr);
   proc->free(near_ptr);
 }
 
@@ -649,8 +648,8 @@ TEST(BlookReassemblyTests, ReassemblyWithPadding) {
 
   // Allocate executable memory for testing
   auto proc = Process::self();
-  void *mem = proc->malloc(64, Process::MemoryProtection::rwx);
-  ASSERT_NE(mem, nullptr);
+  auto mem = proc->malloc(64, Protect::rwx);
+  ASSERT_NE((void*)mem, nullptr);
 
   // Write some original code (just NOPs for testing)
   Pointer ptr = mem;
@@ -690,8 +689,8 @@ TEST(BlookReassemblyTests, ReassemblyWithPaddingTooLarge) {
 
   // Allocate executable memory
   auto proc = Process::self();
-  void *mem = proc->malloc(64, Process::MemoryProtection::rwx);
-  ASSERT_NE(mem, nullptr);
+  auto mem = proc->malloc(64, Protect::rwx);
+  ASSERT_NE((void*)mem, nullptr);
 
   Pointer ptr = mem;
 

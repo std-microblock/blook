@@ -102,7 +102,7 @@ Trampoline Trampoline::make(Pointer pCode, size_t minByteSize,
   zasm::Serializer serializer;
   auto pCodePage = pCode.malloc(utils::estimateCodeSize(program),
                                 near_alloc ? pCode.data() : nullptr,
-                                Pointer::MemoryProtection::rwx);
+                                Protect::rwx);
   if (pCodePage == nullptr) {
     throw std::runtime_error("Failed to allocate memory for trampoline.");
   }

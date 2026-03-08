@@ -123,9 +123,9 @@ public:
     }
 
     Serializer serializer;
-    void *pCodePage = Process::self()->malloc(utils::estimateCodeSize(program), Process::MemoryProtection::rwx);
+    auto pCodePage = Process::self()->malloc(utils::estimateCodeSize(program), Protect::rwx);
     if (auto err =
-            serializer.serialize(program, reinterpret_cast<int64_t>(pCodePage));
+            serializer.serialize(program, reinterpret_cast<int64_t>((void*)pCodePage));
         err != zasm::ErrorCode::None)
       throw std::runtime_error(
           std::format("JIT Serialization failure: {}", err.getErrorName()));

@@ -83,8 +83,6 @@ bool MemoryPatch::restore() {
   return true;
 }
 
-void *Pointer::data() const { return (void *)_offset; }
-
 bool Pointer::is_self() const { return proc && proc->is_self(); }
 
 std::optional<Function> Pointer::guess_function(size_t max_scan_size) {
@@ -126,7 +124,7 @@ Pointer::find_upwards(std::initializer_list<uint8_t> pattern,
   Pointer p = *this;
 
   if (p.proc->is_self())
-    for (; p > this - max_scan_size; p -= 1) {
+    for (; p > (*this - max_scan_size); p -= 1) {
       if (memcmp(pattern.begin(), (unsigned char *)p.data(), pattern.size()) ==
           0) {
         return p;

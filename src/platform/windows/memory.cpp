@@ -11,33 +11,33 @@ ScopedSetMemoryRWX::ScopedSetMemoryRWX(Pointer ptr, size_t size) {
   this->ptr = ptr;
   this->size = size;
   this->old_protect =
-      ptr.proc->set_memory_protect(ptr.data(), size, Process::MemoryProtection::rwx);
+      ptr.proc->set_memory_protect(ptr, size, Protect::rwx);
 }
 
 ScopedSetMemoryRWX::~ScopedSetMemoryRWX() {
-  ptr.proc->set_memory_protect(ptr.data(), size, old_protect);
+  ptr.proc->set_memory_protect(ptr, size, old_protect);
 }
 
-Pointer Pointer::malloc(size_t size, Pointer::MemoryProtection protection) {
-  return absolute(proc->malloc(size, protection));
+Pointer Pointer::malloc(size_t size, Protect protection) {
+  return proc->malloc(size, protection);
 }
 
 Pointer::Pointer(std::shared_ptr<Process> proc) : proc(std::move(proc)) {}
 
 Pointer Pointer::malloc(size_t size, void *nearby,
-                        Pointer::MemoryProtection protection) {
-  return absolute(proc->malloc(size, protection, nearby));
+                        Protect protection) {
+  return proc->malloc(size, protection, nearby);
 }
 
 Pointer Pointer::malloc_rx_near_this(size_t size) {
-  return malloc(size, data(), MemoryProtection::rx);
+  return malloc(size, data(), Protect::rx);
 }
 
-void Pointer::free(size_t size) { proc->free(data(), size); }
+void Pointer::free(size_t size) { proc->free(*this, size); }
 
 std::optional<Module> Pointer::owner_module() {
   MEMORY_BASIC_INFORMATION inf;
-  VirtualQuery(data(), &inf, 0x8);
+  VirtualQuery(*this, &inf, 0x8);
 
   if (inf.AllocationBase)
     return Module{proc, (HMODULE)inf.AllocationBase};
@@ -136,7 +136,7 @@ Pointer::try_write_bytearray(std::span<const uint8_t> data_span) const {
 }
 
 std::expected<void, std::string> Pointer::try_write_pointer(Pointer ptr) const {
-  return try_write_struct<void *>(ptr.data());
+  return try_write_struct<void *>((void*)ptr);
 }
 
 std::vector<uint8_t> Pointer::read_bytearray(size_t size) const {

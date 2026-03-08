@@ -2,6 +2,7 @@
 #include <thread>
 
 #include "blook/blook.h"
+#include "blook/allocator.h"
 
 #include "blook/utils.h"
 #include "windows.h"
@@ -103,40 +104,40 @@ static bool acquireDebugPrivilege() {
 
 namespace blook {
 
-static DWORD ProtectToWin(Process::MemoryProtection protect) {
-  using MP = Process::MemoryProtection;
-  if ((int)protect & (int)MP::Execute) {
-    if ((int)protect & (int)MP::Write)
+static DWORD ProtectToWin(Protect protect) {
+  using P = Protect;
+  if ((int)protect & (int)P::Execute) {
+    if ((int)protect & (int)P::Write)
       return PAGE_EXECUTE_READWRITE;
-    if ((int)protect & (int)MP::Read)
+    if ((int)protect & (int)P::Read)
       return PAGE_EXECUTE_READ;
     return PAGE_EXECUTE;
   }
-  if ((int)protect & (int)MP::Write)
+  if ((int)protect & (int)P::Write)
     return PAGE_READWRITE;
-  if ((int)protect & (int)MP::Read)
+  if ((int)protect & (int)P::Read)
     return PAGE_READONLY;
   return PAGE_NOACCESS;
 }
 
-static Process::MemoryProtection WinToProtect(DWORD win) {
-  using MP = Process::MemoryProtection;
+static Protect WinToProtect(DWORD win) {
+  using P = Protect;
   switch (win & 0xFF) {
   case PAGE_EXECUTE:
-    return MP::Execute;
+    return P::Execute;
   case PAGE_EXECUTE_READ:
-    return MP::ReadExecute;
+    return P::ReadExecute;
   case PAGE_EXECUTE_READWRITE:
   case PAGE_EXECUTE_WRITECOPY:
-    return MP::ReadWriteExecute;
+    return P::ReadWriteExecute;
   case PAGE_READONLY:
-    return MP::Read;
+    return P::Read;
   case PAGE_READWRITE:
   case PAGE_WRITECOPY:
-    return MP::ReadWrite;
+    return P::ReadWrite;
   case PAGE_NOACCESS:
   default:
-    return MP::None;
+    return P::None;
   }
 }
 
@@ -240,9 +241,9 @@ bool Process::check_writable(void *addr, size_t size) const {
   return *res;
 }
 
-std::expected<Process::MemoryProtection, std::string>
+std::expected<Protect, std::string>
 Process::try_set_memory_protect(void *addr, size_t size,
-                                MemoryProtection protect) const {
+                                Protect protect) const {
   DWORD old_protect;
   if (VirtualProtectEx(this->h, addr, size, ProtectToWin(protect),
                        &old_protect)) {
@@ -252,9 +253,9 @@ Process::try_set_memory_protect(void *addr, size_t size,
       std::format("VirtualProtectEx failed: {}", GetLastError()));
 }
 
-Process::MemoryProtection
+Protect
 Process::set_memory_protect(void *addr, size_t size,
-                            MemoryProtection protect) const {
+                            Protect protect) const {
   auto res = try_set_memory_protect(addr, size, protect);
   if (!res)
     throw std::runtime_error(res.error());
@@ -276,85 +277,24 @@ bool Process::check_valid(void *addr) const {
   return *res;
 }
 
-std::expected<void *, std::string>
-Process::try_malloc(size_t size, MemoryProtection protection,
-                    void *nearAddr) const {
-  if (nearAddr) {
-    SYSTEM_INFO sysInfo;
-    GetSystemInfo(&sysInfo);
-    const uint64_t PAGE_SIZE = sysInfo.dwPageSize;
-
-    uint64_t startAddr = (uint64_t(nearAddr) & ~(PAGE_SIZE - 1));
-    uint64_t minAddr =
-        (uint64_t)std::max((int64_t)startAddr - 0x7FFFFF00,
-                           (int64_t)sysInfo.lpMinimumApplicationAddress);
-    uint64_t maxAddr =
-        (uint64_t)std::min((int64_t)startAddr + 0x7FFFFF00,
-                           (int64_t)sysInfo.lpMaximumApplicationAddress);
-
-    uint64_t startPage = (startAddr - (startAddr % PAGE_SIZE));
-    uint64_t pageOffset = 1;
-
-    while (true) {
-      uint64_t byteOffset = pageOffset * PAGE_SIZE;
-      uint64_t highAddr = startPage + byteOffset;
-      uint64_t lowAddr = (startPage > byteOffset) ? startPage - byteOffset : 0;
-
-      bool canTryHigh = highAddr < maxAddr;
-      bool canTryLow = lowAddr > minAddr;
-
-      if (!canTryHigh && !canTryLow)
-        break;
-
-      if (canTryHigh) {
-        void *outAddr =
-            VirtualAllocEx(this->h, (void *)highAddr, size,
-                           MEM_COMMIT | MEM_RESERVE, ProtectToWin(protection));
-        if (outAddr)
-          return outAddr;
-      }
-
-      if (canTryLow) {
-        void *outAddr =
-            VirtualAllocEx(this->h, (void *)lowAddr, size,
-                           MEM_COMMIT | MEM_RESERVE, ProtectToWin(protection));
-        if (outAddr)
-          return outAddr;
-      }
-
-      pageOffset++;
-    }
-    return std::unexpected("Failed to allocate memory near address");
-  } else {
-    void *ptr = VirtualAllocEx(this->h, nullptr, size, MEM_COMMIT | MEM_RESERVE,
-                               ProtectToWin(protection));
-    if (ptr)
-      return ptr;
-    return std::unexpected(
-        std::format("VirtualAllocEx failed: {}", GetLastError()));
-  }
+std::expected<Pointer, std::string>
+Process::try_malloc(size_t size, Protect protection,
+                    void *nearAddr) {
+  return allocator().try_allocate(size, nearAddr, protection);
 }
 
-void *Process::malloc(size_t size, MemoryProtection protection,
-                      void *nearAddr) const {
-  auto res = try_malloc(size, protection, nearAddr);
-  if (!res)
-    throw std::runtime_error(res.error());
-  return *res;
+Pointer Process::malloc(size_t size, Protect protection,
+                        void *nearAddr) {
+  return allocator().allocate(size, nearAddr, protection);
 }
 
 std::expected<void, std::string> Process::try_free(void *addr,
-                                                   size_t size) const {
-  if (VirtualFreeEx(this->h, addr, 0, MEM_RELEASE))
-    return {};
-  return std::unexpected(
-      std::format("VirtualFreeEx failed: {}", GetLastError()));
+                                                   size_t size) {
+  return allocator().try_deallocate(Pointer(shared_from_this(), addr));
 }
 
-void Process::free(void *addr, size_t size) const {
-  auto res = try_free(addr, size);
-  if (!res)
-    throw std::runtime_error(res.error());
+void Process::free(void *addr, size_t size) {
+  allocator().deallocate(Pointer(shared_from_this(), addr));
 }
 
 std::optional<std::shared_ptr<Module>>
@@ -462,67 +402,6 @@ ProcessAllocator &Process::allocator() {
   return *_allocator_ptr;
 }
 
-std::optional<Pointer> ProcessAllocator::allocate(size_t size, void *nearAddr) {
-  constexpr const size_t nearAccepted = /* 2GiB */ 2ll * 1024 * 1024 * 1024;
-  for (auto &[addr, data] : allocatedPages) {
-    if (!nearAddr ||
-        std::abs((int64_t)addr - (int64_t)nearAddr) < nearAccepted) {
-      auto &allocated = data.allocated;
-
-      auto it = allocated.begin();
-      auto itNext = allocated.begin()++;
-      while (it != allocated.end()) {
-        if (itNext == allocated.end()) {
-          if (size + (char *)it->first + it->second < addr) {
-            auto ptr = (char *)it->first + it->second;
-            allocated[ptr] = size;
-            return ptr;
-          }
-        } else {
-          if (size + (char *)it->first + it->second < itNext->first) {
-            auto ptr = (char *)it->first + it->second;
-            allocated[ptr] = size;
-            return ptr;
-          }
-        }
-
-        it++;
-        itNext++;
-      }
-    }
-  }
-
-  constexpr auto pageSize = 4096;
-
-  auto ptr = proc->malloc(size, Process::MemoryProtection::rw, nearAddr);
-
-  if (!ptr)
-    return {};
-
-  auto page = (void *)((size_t)ptr & ~(pageSize - 1));
-  auto &data = allocatedPages[page];
-  data.size = /* pageSize * n > size */ (size / pageSize) * pageSize + pageSize;
-  data.allocated[ptr] = size;
-
-  return Pointer(proc, ptr);
-}
-
-ProcessAllocator::ProcessAllocator(std::shared_ptr<Process> proc)
-    : proc(std::move(proc)) {}
-
-void ProcessAllocator::deallocate(Pointer addr) {
-  for (auto &[page, data] : allocatedPages) {
-    auto &allocated = data.allocated;
-    auto it = allocated.find(addr.data());
-    if (it != allocated.end()) {
-      allocated.erase(it);
-      if (allocated.empty()) {
-        proc->free(page);
-      }
-      return;
-    }
-  }
-}
 std::vector<Thread> Process::threads() {
   std::vector<Thread> threads;
   THREADENTRY32 entry{.dwSize = sizeof(THREADENTRY32)};

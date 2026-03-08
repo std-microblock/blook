@@ -49,3 +49,5 @@ ELSE
     ret
 ENDIF
 asm_counter_function ENDP
+
+END
