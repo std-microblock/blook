@@ -257,9 +257,19 @@ public:
   }
 
   [[nodiscard]] MemoryPatch
-      reassembly(std::function<void(zasm::x86::Assembler)>);
+      reassembly(std::function<void(zasm::x86::Assembler&)>);
 
   [[nodiscard]] MemoryPatch reassembly_thread_pause();
+
+  // Reassembly with trampoline support
+  // Allocates new memory, writes user code + jump to trampoline
+  // Original location gets a jump to the new memory
+  [[nodiscard]] std::expected<MemoryPatch, std::string>
+  try_reassembly_with_trampoline(
+      std::function<void(zasm::x86::Assembler&)> func);
+
+  [[nodiscard]] MemoryPatch
+  reassembly_with_trampoline(std::function<void(zasm::x86::Assembler&)> func);
 
   std::optional<Function> guess_function(size_t max_scan_size = 50000);
 
@@ -275,6 +285,12 @@ public:
   MemoryRange range_to(Pointer ptr);
 
   MemoryRange range_size(std::size_t size);
+
+  // Select next N instructions and return a MemoryRange covering them
+  std::expected<MemoryRange, std::string>
+  try_range_next_instr(int num_of_instructions);
+
+  MemoryRange range_next_instr(int num_of_instructions);
 };
 
 struct ScopedSetMemoryRWX {
@@ -507,6 +523,15 @@ public:
   int32_t crc32() const;
 
   [[nodiscard]] disasm::DisassembleRange<MemoryRange> disassembly() const;
+
+  // Reassembly with padding support
+  // If the new code is smaller, pad with NOPs
+  // If the new code is larger, return unexpected
+  [[nodiscard]] std::expected<MemoryPatch, std::string>
+  try_reassembly_with_padding(std::function<void(zasm::x86::Assembler&)> func);
+
+  [[nodiscard]] MemoryPatch
+  reassembly_with_padding(std::function<void(zasm::x86::Assembler&)> func);
 };
 
 static_assert(std::sentinel_for<decltype(std::declval<MemoryRange>().begin()),

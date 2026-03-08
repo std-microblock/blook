@@ -35,6 +35,7 @@ target("blook-test")
     set_kind("binary")
     if is_plat("windows") then
         add_files("src/tests/test_windows.cpp")
+        add_files("src/tests/test_asm.asm")
     elseif is_plat("linux") then
         add_files("src/tests/test_linux.cpp")
     end

@@ -150,10 +150,6 @@ public:
         current_value = InstructionCtx{r.value(), address};
         ptr += size;
         address += size;
-
-        if (ptr == range_end) {
-          over = true;
-        }
       }
     }
   };

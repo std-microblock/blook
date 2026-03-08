@@ -222,7 +222,8 @@ TEST(BlookMemoryTests, ProcessMemoryAPI) {
   EXPECT_FALSE(proc->check_valid(ptr));
 
   // Test near malloc
-  void *near_ptr = proc->malloc(1024, Process::MemoryProtection::rw, (void*)0x10000);
+  void *near_ptr =
+      proc->malloc(1024, Process::MemoryProtection::rw, (void *)0x10000);
   ASSERT_NE(near_ptr, nullptr);
   proc->free(near_ptr);
 }
@@ -292,24 +293,27 @@ TEST(BlookMemoryTests, NewReadWriteAPI) {
 
   // Test string writing
   char str_buf[20];
-  Pointer p_str_buf = (void*)str_buf;
+  Pointer p_str_buf = (void *)str_buf;
   p_str_buf.write_utf8_string("test string");
   EXPECT_STREQ(str_buf, "test string");
   EXPECT_EQ(p_str_buf.read_utf8_string(), "test string");
 
   wchar_t wstr_buf[20];
-  Pointer p_wstr_buf = (void*)wstr_buf;
+  Pointer p_wstr_buf = (void *)wstr_buf;
   p_wstr_buf.write_utf16_string(L"test wstring");
   EXPECT_TRUE(p_wstr_buf.read_utf16_string() == std::wstring(L"test wstring"));
 
   // Test write_bytearray overloads
   std::string s_data = "abcd";
   p_str_buf.write_bytearray(s_data);
-  EXPECT_EQ(p_str_buf.read_bytearray(4), (std::vector<uint8_t>{'a', 'b', 'c', 'd'}));
+  EXPECT_EQ(p_str_buf.read_bytearray(4),
+            (std::vector<uint8_t>{'a', 'b', 'c', 'd'}));
 
   std::wstring ws_data = L"efgh";
   p_wstr_buf.write_bytearray(ws_data);
-  EXPECT_EQ(p_wstr_buf.read_bytearray(8), (std::vector<uint8_t>{(uint8_t)'e', 0, (uint8_t)'f', 0, (uint8_t)'g', 0, (uint8_t)'h', 0}));
+  EXPECT_EQ(p_wstr_buf.read_bytearray(8),
+            (std::vector<uint8_t>{(uint8_t)'e', 0, (uint8_t)'f', 0,
+                                  (uint8_t)'g', 0, (uint8_t)'h', 0}));
 }
 
 TEST(BlookMemoryTests, ScopedSetMemoryRWX) {
@@ -575,6 +579,248 @@ TEST(VEHHookTest, SoftwareBreakpoint) {
 //     EXPECT_EQ(result, 2 * 4 + 42);
 //     ASSERT_FALSE(called);
 // }
+
+#pragma optimize("", off)
+[[clang::noinline]] [[gnu::noinline]] [[msvc::noinline]]
+int test_reassembly_target(int a, int b) {
+  return a + b;
+}
+
+// External assembly functions for testing
+extern "C" {
+int asm_add_function(int a, int b);
+void asm_counter_function(int increment_by);
+extern volatile int g_trampoline_counter;
+}
+
+// Define the global counter
+volatile int g_trampoline_counter = 0;
+
+#pragma optimize("", on)
+
+TEST(BlookReassemblyTests, RangeNextInstr) {
+  using namespace blook;
+
+  // Test range_next_instr with a simple function
+  Pointer func_ptr = (void *)test_reassembly_target;
+
+  // Test try_range_next_instr
+  auto range1_result = func_ptr.try_range_next_instr(1);
+  ASSERT_TRUE(range1_result.has_value()) << range1_result.error();
+  auto range1 = *range1_result;
+  EXPECT_GT(range1.size(), 0);
+
+  // Test range_next_instr (throwing version)
+  auto range1_throw = func_ptr.range_next_instr(1);
+  EXPECT_EQ(range1.size(), range1_throw.size());
+
+  // Get the first 3 instructions
+  auto range3_result = func_ptr.try_range_next_instr(3);
+  ASSERT_TRUE(range3_result.has_value()) << range3_result.error();
+  auto range3 = *range3_result;
+  EXPECT_GT(range3.size(), range1.size());
+
+  // Verify we can disassemble the range
+  auto disasm = range3.disassembly();
+  int count = 0;
+  for (const auto &instr : disasm) {
+    count++;
+  }
+  EXPECT_GE(count, 3);
+
+  // Test with 0 instructions
+  auto range0_result = func_ptr.try_range_next_instr(0);
+  ASSERT_TRUE(range0_result.has_value());
+  EXPECT_EQ(range0_result->size(), 0);
+
+  // Test that range_next_instr works correctly for basic usage
+  auto range2 = func_ptr.range_next_instr(2);
+  EXPECT_GT(range2.size(), 0);
+  EXPECT_LT(range2.size(), range3.size());
+
+  // Test error case - try to get too many instructions
+  auto invalid_ptr = Pointer((void *)0x1000);
+  auto range_invalid = invalid_ptr.try_range_next_instr(100);
+  EXPECT_FALSE(range_invalid.has_value());
+}
+
+TEST(BlookReassemblyTests, ReassemblyWithPadding) {
+  using namespace blook;
+
+  // Allocate executable memory for testing
+  auto proc = Process::self();
+  void *mem = proc->malloc(64, Process::MemoryProtection::rwx);
+  ASSERT_NE(mem, nullptr);
+
+  // Write some original code (just NOPs for testing)
+  Pointer ptr = mem;
+  std::vector<uint8_t> original_code(64, 0x90); // Fill with NOPs
+  ptr.write_bytearray(original_code);
+
+  // Create a range and reassemble with smaller code
+  MemoryRange range(ptr, 20);
+  auto patch_result =
+      range.try_reassembly_with_padding([](zasm::x86::Assembler& a) {
+        // Generate a small piece of code (2 bytes: ret)
+        a.ret();
+      });
+
+  ASSERT_TRUE(patch_result.has_value()) << patch_result.error();
+
+  // Apply the patch
+  auto &patch = *patch_result;
+  ASSERT_TRUE(patch.patch());
+
+  // Verify the first byte is 0xC3 (ret)
+  EXPECT_EQ(ptr.read_u8(), 0xC3);
+
+  // Verify the rest is padded with NOPs (0x90)
+  for (size_t i = 1; i < 20; i++) {
+    EXPECT_EQ(ptr.add(i).read_u8(), 0x90)
+        << "Byte at offset " << i << " should be NOP";
+  }
+
+  // Restore and cleanup
+  patch.restore();
+  proc->free(mem);
+}
+
+TEST(BlookReassemblyTests, ReassemblyWithPaddingTooLarge) {
+  using namespace blook;
+
+  // Allocate executable memory
+  auto proc = Process::self();
+  void *mem = proc->malloc(64, Process::MemoryProtection::rwx);
+  ASSERT_NE(mem, nullptr);
+
+  Pointer ptr = mem;
+
+  // Create a small range and try to fit too much code
+  MemoryRange range(ptr, 5);
+  auto patch_result =
+      range.try_reassembly_with_padding([](zasm::x86::Assembler& a) {
+        // Generate code that's definitely larger than 5 bytes
+        if constexpr (blook::utils::compileArchitecture() ==
+                      blook::utils::Architecture::x86_64) {
+          a.push(zasm::x86::rax);
+          a.push(zasm::x86::rbx);
+          a.push(zasm::x86::rcx);
+          a.push(zasm::x86::rdx);
+          a.pop(zasm::x86::rdx);
+          a.pop(zasm::x86::rcx);
+          a.pop(zasm::x86::rbx);
+          a.pop(zasm::x86::rax);
+        } else {
+          a.push(zasm::x86::eax);
+          a.push(zasm::x86::ebx);
+          a.push(zasm::x86::ecx);
+          a.push(zasm::x86::edx);
+          a.pop(zasm::x86::edx);
+          a.pop(zasm::x86::ecx);
+          a.pop(zasm::x86::ebx);
+          a.pop(zasm::x86::eax);
+        }
+      });
+
+  // Should fail because code is too large
+  EXPECT_FALSE(patch_result.has_value());
+
+  proc->free(mem);
+}
+
+TEST(BlookReassemblyTests, ReassemblyWithTrampoline) {
+  using namespace blook;
+
+  // Test 1: Verify asm_add_function works correctly before patching
+  EXPECT_EQ(asm_add_function(10, 20), 30);
+  EXPECT_EQ(asm_add_function(5, 7), 12);
+
+  // Test 2: Disassemble the original function to understand its structure
+  Pointer func_ptr = (void *)asm_add_function;
+  auto original_bytes = func_ptr.read_bytearray(20);
+
+  // Test 3: Apply trampoline with user code that sets eax before original code
+  auto patch_result =
+      func_ptr.try_reassembly_with_trampoline([](zasm::x86::Assembler& a) {
+        a.mov(zasm::x86::ecx, zasm::Imm(999));
+      });
+  ASSERT_TRUE(patch_result.has_value()) << patch_result.error();
+  ASSERT_TRUE(patch_result->patch());
+
+  EXPECT_EQ(asm_add_function(10, 20), 999 + 20)
+      << "Trampoline should execute user code and return 999";
+  EXPECT_EQ(asm_add_function(5, 7), 999 + 7);
+
+  // Test 6: Verify the original location has been modified (should have a jump)
+  auto patched_bytes = func_ptr.read_bytearray(20);
+  EXPECT_NE(original_bytes, patched_bytes)
+      << "Original code should be modified";
+
+  // Test 7: Restore and verify
+  patch_result->restore();
+
+  EXPECT_EQ(asm_add_function(10, 20), 30);
+
+  // Test 8: Verify bytes are restored
+  auto restored_bytes = func_ptr.read_bytearray(20);
+  EXPECT_EQ(original_bytes, restored_bytes)
+      << "Original code should be restored";
+}
+
+TEST(BlookReassemblyTests, ReassemblyWithTrampolineCounterFunction) {
+  using namespace blook;
+
+  // Test 1: Verify asm_counter_function works correctly before patching
+  Pointer counter_ptr = (void *)asm_counter_function;
+
+  g_trampoline_counter = 100;
+  asm_counter_function(5);
+  EXPECT_EQ(g_trampoline_counter, 105);
+
+  g_trampoline_counter = 200;
+  asm_counter_function(10);
+  EXPECT_EQ(g_trampoline_counter, 210);
+
+  // Test 2: Read original bytes
+  auto original_bytes = counter_ptr.read_bytearray(20);
+
+  // Test 3: Apply trampoline that modifies the increment_by parameter
+  auto patch_result =
+      counter_ptr.try_reassembly_with_trampoline([](zasm::x86::Assembler& a) {
+        // Modify the first parameter (increment_by) to 999
+        a.mov(zasm::x86::ecx, zasm::Imm(999));
+      });
+
+  ASSERT_TRUE(patch_result.has_value()) << patch_result.error();
+  ASSERT_TRUE(patch_result->patch());
+
+  // Test 4: Verify trampoline modifies parameter
+  g_trampoline_counter = 100;
+  asm_counter_function(5);  // Pass 5, but trampoline changes it to 999
+  EXPECT_EQ(g_trampoline_counter, 1099)
+      << "Trampoline should change increment to 999";
+
+  g_trampoline_counter = 200;
+  asm_counter_function(10);  // Pass 10, but trampoline changes it to 999
+  EXPECT_EQ(g_trampoline_counter, 1199);
+
+  // Test 5: Verify bytes were modified
+  auto patched_bytes = counter_ptr.read_bytearray(20);
+  EXPECT_NE(original_bytes, patched_bytes)
+      << "Original code should be modified";
+
+  // Test 6: Restore and verify
+  patch_result->restore();
+
+  g_trampoline_counter = 100;
+  asm_counter_function(5);
+  EXPECT_EQ(g_trampoline_counter, 105);
+
+  // Test 7: Verify bytes are restored
+  auto restored_bytes = counter_ptr.read_bytearray(20);
+  EXPECT_EQ(original_bytes, restored_bytes)
+      << "Original code should be restored";
+}
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);

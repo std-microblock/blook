@@ -2,12 +2,14 @@
 
 #include "blook/disassembly.h"
 
+#include "blook/hook.h"
 #include "blook/memo.h"
 #include "blook/process.h"
 #include "zasm/formatter/formatter.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <utility>
+
 
 #include <iostream>
 
@@ -22,7 +24,7 @@ Pointer::Pointer(std::shared_ptr<Process> proc, size_t offset)
     : _offset(offset), proc(std::move(proc)) {}
 
 MemoryPatch
-Pointer::reassembly(std::function<void(zasm::x86::Assembler)> func) {
+Pointer::reassembly(std::function<void(zasm::x86::Assembler&)> func) {
   using namespace zasm;
   Program program(utils::compileMachineMode());
   x86::Assembler b(program);
@@ -153,6 +155,45 @@ MemoryRange Pointer::range_size(std::size_t size) {
   return MemoryRange{*this, size};
 }
 
+std::expected<MemoryRange, std::string>
+Pointer::try_range_next_instr(int num_of_instructions) {
+  if (num_of_instructions <= 0) {
+    return MemoryRange{*this, 0};
+  }
+
+  try {
+    auto disasm = this->range_size(num_of_instructions * 15).disassembly();
+    size_t total_size = 0;
+    int count = 0;
+
+    for (const auto &instr : disasm) {
+      if (count >= num_of_instructions) {
+        break;
+      }
+      total_size += instr->getLength();
+      count++;
+    }
+
+    if (count < num_of_instructions) {
+      return std::unexpected(
+          std::format("Could only find {} instructions, requested {}", count,
+                      num_of_instructions));
+    }
+
+    return MemoryRange{*this, total_size};
+  } catch (const std::exception &e) {
+    return std::unexpected(
+        std::format("Failed to get instruction range: {}", e.what()));
+  }
+}
+
+MemoryRange Pointer::range_next_instr(int num_of_instructions) {
+  auto result = try_range_next_instr(num_of_instructions);
+  if (!result) {
+    throw std::runtime_error(result.error());
+  }
+  return *result;
+}
 
 MemoryRange::MemoryRange(std::shared_ptr<Process> proc, void *offset,
                          size_t size)
@@ -224,7 +265,7 @@ MemoryRange::find_one_remote(std::vector<uint8_t> pattern) const {
   return res.ptr;
 }
 MemoryPatch Pointer::reassembly_thread_pause() {
-  return reassembly([](zasm::x86::Assembler a) {
+  return reassembly([](zasm::x86::Assembler& a) {
 #if defined(BLOOK_ARCHITECTURE_X86_64) || defined(BLOOK_ARCHITECTURE_X86_32)
     // EB FE: jmp $0
     a.db(0xeb);
@@ -234,7 +275,155 @@ MemoryPatch Pointer::reassembly_thread_pause() {
 #endif
   });
 }
+
+std::expected<MemoryPatch, std::string> Pointer::try_reassembly_with_trampoline(
+    std::function<void(zasm::x86::Assembler&)> func) {
+  using namespace zasm;
+
+  try {
+    // Calculate min_bytes based on the jump instruction size
+    // We need enough space for push/ret trick
+    // For x64: push imm32 (6) + mov [rsp+4], imm32 (8) + ret (1) = 15 bytes
+    // For x86: push imm32 (5) + ret (1) = 6 bytes
+    size_t min_bytes;
+    if constexpr (utils::compileArchitecture() == utils::Architecture::x86_64) {
+      min_bytes = 15;
+    } else {
+      min_bytes = 6;
+    }
+
+    // Step 1: Create trampoline for original code
+    Trampoline trampoline = Trampoline::make(*this, min_bytes, true);
+
+    Pointer new_mem = this->malloc_rx_near_this(1024);
+    if (new_mem.data() == nullptr) {
+      return std::unexpected("Failed to allocate memory for user code");
+    }
+
+    Program user_program(utils::compileMachineMode());
+    x86::Assembler user_asm(user_program);
+
+    func(user_asm);
+
+    auto trampoline_addr = (size_t)trampoline.pTrampoline.data();
+    auto new_mem_addr = (size_t)new_mem.data();
+
+    if constexpr (utils::compileArchitecture() == utils::Architecture::x86_64) {
+      user_asm.jmp(Imm64(trampoline_addr));
+    } else {
+      user_asm.jmp(Imm32(trampoline_addr));
+    }
+
+    Serializer user_serializer;
+    if (auto err = user_serializer.serialize(user_program, new_mem_addr);
+        err != ErrorCode::None) {
+      return std::unexpected(std::format("Failed to serialize user code: {} {}",
+                                         err.getErrorName(),
+                                         err.getErrorMessage()));
+    }
+
+    {
+      ScopedSetMemoryRWX protector(new_mem, user_serializer.getCodeSize());
+      new_mem.write_bytearray(
+          std::span<const uint8_t>((const uint8_t *)user_serializer.getCode(),
+                                   user_serializer.getCodeSize()));
+    }
+
+    Program hook_program(utils::compileMachineMode());
+    x86::Assembler hook_asm(hook_program);
+
+    auto orig_addr = (size_t)this->data();
+
+    if constexpr (utils::compileArchitecture() == utils::Architecture::x86_64) {
+      hook_asm.jmp(Imm64(new_mem_addr));
+    } else {
+      hook_asm.jmp(Imm32(new_mem_addr));
+    }
+
+    // Serialize hook code
+    Serializer hook_serializer;
+    if (auto err = hook_serializer.serialize(hook_program, orig_addr);
+        err != ErrorCode::None) {
+      return std::unexpected(std::format("Failed to serialize hook code: {} {}",
+                                         err.getErrorName(),
+                                         err.getErrorMessage()));
+    }
+
+    const auto hook_size = hook_serializer.getCodeSize();
+    if (hook_size > min_bytes) {
+      return std::unexpected(
+          std::format("Hook code size ({}) exceeds minimum bytes ({})",
+                      hook_size, min_bytes));
+    }
+
+    // Create patch with padding
+    std::vector<uint8_t> patch_data(min_bytes);
+    std::memcpy(patch_data.data(), hook_serializer.getCode(), hook_size);
+
+    return MemoryPatch{*this, patch_data};
+
+  } catch (const std::exception &e) {
+    return std::unexpected(
+        std::format("Failed to create trampoline reassembly: {}", e.what()));
+  }
+}
+
+MemoryPatch Pointer::reassembly_with_trampoline(
+    std::function<void(zasm::x86::Assembler&)> func) {
+  auto result = try_reassembly_with_trampoline(func);
+  if (!result) {
+    throw std::runtime_error(result.error());
+  }
+  return std::move(*result);
+}
+
 bool Pointer::is_valid() const {
   return proc != nullptr && proc->check_valid((void *)_offset);
+}
+
+std::expected<MemoryPatch, std::string>
+MemoryRange::try_reassembly_with_padding(
+    std::function<void(zasm::x86::Assembler&)> func) {
+  using namespace zasm;
+  Program program(utils::compileMachineMode());
+  x86::Assembler b(program);
+  func(b);
+
+  const auto code_size = utils::estimateCodeSize(program);
+
+  // Check if code is too large
+  if (code_size > _size) {
+    return std::unexpected(
+        std::format("Generated code size ({}) exceeds available space ({})",
+                    code_size, _size));
+  }
+
+  std::vector<uint8_t> data(_size);
+
+  Serializer serializer;
+  if (auto err = serializer.serialize(program, this->_offset);
+      err != zasm::ErrorCode::None)
+    return std::unexpected(std::format("JIT Serialization failure: {} {}",
+                                       err.getErrorName(),
+                                       err.getErrorMessage()));
+
+  // Copy generated code
+  std::memcpy(data.data(), serializer.getCode(), code_size);
+
+  // Fill remaining space with NOPs
+  if (code_size < _size) {
+    std::memset(data.data() + code_size, 0x90, _size - code_size);
+  }
+
+  return MemoryPatch{*this, data};
+}
+
+MemoryPatch MemoryRange::reassembly_with_padding(
+    std::function<void(zasm::x86::Assembler&)> func) {
+  auto result = try_reassembly_with_padding(func);
+  if (!result) {
+    throw std::runtime_error(result.error());
+  }
+  return std::move(*result);
 }
 } // namespace blook
