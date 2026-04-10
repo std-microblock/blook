@@ -141,7 +141,12 @@ static Protect WinToProtect(DWORD win) {
   }
 }
 
-static bool safe_memcpy(void *dst, const void *src, size_t size) {
+#ifdef __clang__
+// clang-cl /EHsc can lose __try coverage if memcpy is lowered to inline
+// loads/stores. Keep memcpy as a real call in this SEH probe.
+[[clang::no_builtin("memcpy")]]
+#endif
+bool safe_memcpy(void *dst, const void *src, size_t size) {
   __try {
     std::memcpy(dst, src, size);
     return true;
