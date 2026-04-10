@@ -322,10 +322,31 @@ TEST(BlookMemoryTests, ScopedSetMemoryRWX) {
   using namespace blook;
   int val = 123;
   Pointer p = &val;
+
+  auto assert_protect = [](Pointer p, DWORD expected) {
+    MEMORY_BASIC_INFORMATION mbi;
+    VirtualQuery(p.data(), &mbi, sizeof(mbi));
+    EXPECT_EQ(mbi.Protect, expected);
+  };
+  assert_protect(p, PAGE_READWRITE);
   {
     ScopedSetMemoryRWX scoped(p, sizeof(val));
+    assert_protect(p, PAGE_EXECUTE_READWRITE);
     p.write_s32(456);
   }
+  assert_protect(p, PAGE_READWRITE);
+
+  auto rx_page = VirtualAlloc(nullptr, 0x1000, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READ);
+  ASSERT_NE(rx_page, nullptr);
+  Pointer p_rx = rx_page;
+  assert_protect(p_rx, PAGE_EXECUTE_READ);
+  {
+    ScopedSetMemoryRWX scoped(p_rx, 0x1000);
+    assert_protect(p_rx, PAGE_EXECUTE_READWRITE);
+  }
+  assert_protect(p_rx, PAGE_EXECUTE_READ);
+  VirtualFree(rx_page, 0, MEM_RELEASE);
+
   EXPECT_EQ(val, 456);
 }
 
