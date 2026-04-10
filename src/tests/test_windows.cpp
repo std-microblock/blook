@@ -204,7 +204,7 @@ TEST(BlookMemoryTests, ProcessMemoryAPI) {
 
   // Test malloc/free
   auto ptr = proc->malloc(1024, Protect::rw);
-  ASSERT_NE((void*)ptr, nullptr);
+  ASSERT_NE((void *)ptr, nullptr);
   EXPECT_TRUE(proc->check_valid(ptr));
   EXPECT_TRUE(proc->check_readable(ptr, 1024));
   EXPECT_TRUE(proc->check_writable(ptr, 1024));
@@ -223,7 +223,7 @@ TEST(BlookMemoryTests, ProcessMemoryAPI) {
 
   // Test near malloc
   auto near_ptr = proc->malloc(1024, Protect::rw, (void *)0x10000);
-  ASSERT_NE((void*)near_ptr, nullptr);
+  ASSERT_NE((void *)near_ptr, nullptr);
   proc->free(near_ptr);
 }
 
@@ -275,10 +275,6 @@ TEST(BlookMemoryTests, NewReadWriteAPI) {
   ASSERT_TRUE(res.has_value()) << res.error();
   EXPECT_EQ(*res, 0x7fffffff);
 
-  Pointer invalid_ptr = (void *)0x1234; // Likely invalid
-  auto res_invalid = invalid_ptr.try_read_s32();
-  EXPECT_FALSE(res_invalid.has_value());
-
   // Test read/write pointer
   int target_val = 123;
   void *target_ptr = &target_val;
@@ -313,6 +309,13 @@ TEST(BlookMemoryTests, NewReadWriteAPI) {
   EXPECT_EQ(p_wstr_buf.read_bytearray(8),
             (std::vector<uint8_t>{(uint8_t)'e', 0, (uint8_t)'f', 0,
                                   (uint8_t)'g', 0, (uint8_t)'h', 0}));
+}
+
+TEST(BlookMemoryTests, InvalidAddrReadNoCrash) {
+  using namespace blook;
+  Pointer invalid_ptr = (void *)0x1234; // Likely invalid
+  auto res_invalid = invalid_ptr.try_read_s32();
+  EXPECT_FALSE(res_invalid.has_value());
 }
 
 TEST(BlookMemoryTests, ScopedSetMemoryRWX) {
@@ -649,7 +652,7 @@ TEST(BlookReassemblyTests, ReassemblyWithPadding) {
   // Allocate executable memory for testing
   auto proc = Process::self();
   auto mem = proc->malloc(64, Protect::rwx);
-  ASSERT_NE((void*)mem, nullptr);
+  ASSERT_NE((void *)mem, nullptr);
 
   // Write some original code (just NOPs for testing)
   Pointer ptr = mem;
@@ -659,7 +662,7 @@ TEST(BlookReassemblyTests, ReassemblyWithPadding) {
   // Create a range and reassemble with smaller code
   MemoryRange range(ptr, 20);
   auto patch_result =
-      range.try_reassembly_with_padding([](zasm::x86::Assembler& a) {
+      range.try_reassembly_with_padding([](zasm::x86::Assembler &a) {
         // Generate a small piece of code (2 bytes: ret)
         a.ret();
       });
@@ -690,14 +693,14 @@ TEST(BlookReassemblyTests, ReassemblyWithPaddingTooLarge) {
   // Allocate executable memory
   auto proc = Process::self();
   auto mem = proc->malloc(64, Protect::rwx);
-  ASSERT_NE((void*)mem, nullptr);
+  ASSERT_NE((void *)mem, nullptr);
 
   Pointer ptr = mem;
 
   // Create a small range and try to fit too much code
   MemoryRange range(ptr, 5);
   auto patch_result =
-      range.try_reassembly_with_padding([](zasm::x86::Assembler& a) {
+      range.try_reassembly_with_padding([](zasm::x86::Assembler &a) {
         // Generate code that's definitely larger than 5 bytes
         if constexpr (blook::utils::compileArchitecture() ==
                       blook::utils::Architecture::x86_64) {
@@ -739,10 +742,8 @@ TEST(BlookReassemblyTests, ReassemblyWithTrampoline) {
   auto original_bytes = func_ptr.read_bytearray(20);
 
   // Test 3: Apply trampoline with user code that sets eax before original code
-  auto patch_result =
-      func_ptr.try_reassembly_with_trampoline([](zasm::x86::Assembler& a) {
-        a.mov(zasm::x86::ecx, zasm::Imm(999));
-      });
+  auto patch_result = func_ptr.try_reassembly_with_trampoline(
+      [](zasm::x86::Assembler &a) { a.mov(zasm::x86::ecx, zasm::Imm(999)); });
   ASSERT_TRUE(patch_result.has_value()) << patch_result.error();
   ASSERT_TRUE(patch_result->patch());
 
@@ -785,7 +786,7 @@ TEST(BlookReassemblyTests, ReassemblyWithTrampolineCounterFunction) {
 
   // Test 3: Apply trampoline that modifies the increment_by parameter
   auto patch_result =
-      counter_ptr.try_reassembly_with_trampoline([](zasm::x86::Assembler& a) {
+      counter_ptr.try_reassembly_with_trampoline([](zasm::x86::Assembler &a) {
         // Modify the first parameter (increment_by) to 999
         a.mov(zasm::x86::ecx, zasm::Imm(999));
       });
@@ -795,12 +796,12 @@ TEST(BlookReassemblyTests, ReassemblyWithTrampolineCounterFunction) {
 
   // Test 4: Verify trampoline modifies parameter
   g_trampoline_counter = 100;
-  asm_counter_function(5);  // Pass 5, but trampoline changes it to 999
+  asm_counter_function(5); // Pass 5, but trampoline changes it to 999
   EXPECT_EQ(g_trampoline_counter, 1099)
       << "Trampoline should change increment to 999";
 
   g_trampoline_counter = 200;
-  asm_counter_function(10);  // Pass 10, but trampoline changes it to 999
+  asm_counter_function(10); // Pass 10, but trampoline changes it to 999
   EXPECT_EQ(g_trampoline_counter, 1199);
 
   // Test 5: Verify bytes were modified
@@ -826,7 +827,8 @@ TEST(BlookMemoryTests, PatternParsing) {
   ASSERT_NE(process, nullptr);
 
   const uint8_t test_data[] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11, 0x22};
-  auto range = blook::MemoryRange(process, (void*)test_data, sizeof(test_data));
+  auto range =
+      blook::MemoryRange(process, (void *)test_data, sizeof(test_data));
 
   EXPECT_TRUE(range.find_one_pattern("aabbcc").has_value());
   EXPECT_TRUE(range.find_one_pattern("aa bb cc").has_value());
