@@ -109,7 +109,19 @@ public:
     return std::shared_ptr<Process>(new Process(argv...));
   }
 
+  void suspend();
+  void resume();
 
+  WIN_ONLY(
+      enum class InjectMethod{CreateRemoteThread, NtCreateThread,
+                              RtlCreateUserThread};
+
+      void *inject(const std::string &dll_path,
+                   InjectMethod method = InjectMethod::CreateRemoteThread);)
+
+  static std::shared_ptr<Process> launch(const std::string &path,
+                                         bool suspended = false);
+  static std::shared_ptr<Process> launch_suspended(const std::string &path);
 };
 
 } // namespace blook

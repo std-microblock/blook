@@ -54,13 +54,6 @@ public:
   Pointer base();
 
   size_t size();
-  
-  WIN_ONLY(
-      enum class InjectMethod{CreateRemoteThread, NtCreateThread,
-                              RtlCreateUserThread};
-
-      void *inject(const std::string &dll_path,
-                   InjectMethod method = InjectMethod::CreateRemoteThread);)
 };
 
 } // namespace blook

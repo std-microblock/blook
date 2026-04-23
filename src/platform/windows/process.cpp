@@ -102,6 +102,57 @@ static bool acquireDebugPrivilege() {
 
 #endif
 
+static HANDLE RtlCreateUserThread(HANDLE hProcess, LPVOID lpBaseAddress,
+                                  LPVOID lpSpace) {
+  typedef DWORD(WINAPI * functypeRtlCreateUserThread)(
+      HANDLE ProcessHandle, PSECURITY_DESCRIPTOR SecurityDescriptor,
+      BOOL CreateSuspended, ULONG StackZeroBits, PULONG StackReserved,
+      PULONG StackCommit, LPVOID StartAddress, LPVOID StartParameter,
+      HANDLE ThreadHandle, LPVOID ClientID);
+  HANDLE hRemoteThread = NULL;
+  HMODULE hNtDllModule = GetModuleHandle("ntdll.dll");
+  if (hNtDllModule == NULL) {
+    return NULL;
+  }
+  functypeRtlCreateUserThread funcRtlCreateUserThread =
+      (functypeRtlCreateUserThread)GetProcAddress(hNtDllModule,
+                                                  "RtlCreateUserThread");
+  if (!funcRtlCreateUserThread) {
+    return NULL;
+  }
+  funcRtlCreateUserThread(hProcess, NULL, 0, 0, 0, 0, lpBaseAddress, lpSpace,
+                          &hRemoteThread, NULL);
+  DWORD lastError = GetLastError();
+  if (lastError)
+    throw std::runtime_error(std::to_string(lastError));
+  return hRemoteThread;
+}
+
+static HANDLE NtCreateThreadEx(HANDLE hProcess, LPVOID lpBaseAddress,
+                               LPVOID lpSpace) {
+  typedef DWORD(WINAPI * functypeNtCreateThreadEx)(
+      PHANDLE ThreadHandle, ACCESS_MASK DesiredAccess, LPVOID ObjectAttributes,
+      HANDLE ProcessHandle, LPTHREAD_START_ROUTINE lpStartAddress,
+      LPVOID lpParameter, BOOL CreateSuspended, DWORD dwStackSize,
+      DWORD Unknown1, DWORD Unknown2, LPVOID Unknown3);
+  HANDLE hRemoteThread = NULL;
+  HMODULE hNtDllModule = NULL;
+  functypeNtCreateThreadEx funcNtCreateThreadEx = NULL;
+  hNtDllModule = GetModuleHandle("ntdll.dll");
+  if (hNtDllModule == NULL) {
+    return NULL;
+  }
+  funcNtCreateThreadEx = (functypeNtCreateThreadEx)GetProcAddress(
+      hNtDllModule, "NtCreateThreadEx");
+  if (!funcNtCreateThreadEx) {
+    return NULL;
+  }
+  funcNtCreateThreadEx(&hRemoteThread, GENERIC_ALL, NULL, hProcess,
+                        (LPTHREAD_START_ROUTINE)lpBaseAddress, lpSpace, FALSE,
+                        NULL, NULL, NULL, NULL);
+  return hRemoteThread;
+}
+
 namespace blook {
 
 static DWORD ProtectToWin(Protect protect) {
@@ -419,5 +470,55 @@ std::vector<Thread> Process::threads() {
     } while (Thread32Next(snapshot, &entry));
   }
   return threads;
+}
+
+void *Process::inject(const std::string &dll_path, Process::InjectMethod method) {
+  LPVOID lpSpace =
+      (LPVOID)VirtualAllocEx(h, NULL, dll_path.length(),
+                             MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+  if (!lpSpace)
+    throw std::runtime_error(std::format("Failed to alloc in proc"));
+
+  int n = WriteProcessMemory(h, lpSpace, dll_path.c_str(),
+                             dll_path.length(), NULL);
+  if (n == 0)
+    throw std::runtime_error(std::format("failed to write into process"));
+
+  switch (method) {
+  case InjectMethod::NtCreateThread:
+    return NtCreateThreadEx(h, (void *)LoadLibraryA, lpSpace);
+  case InjectMethod::RtlCreateUserThread:
+    return RtlCreateUserThread(h, (void *)LoadLibraryA, lpSpace);
+  default:
+    return CreateRemoteThread(h, NULL, 0,
+                              (LPTHREAD_START_ROUTINE)(void *)LoadLibraryA,
+                              lpSpace, NULL, NULL);
+  }
+}
+
+void Process::suspend() {
+  for (auto &t : threads())
+    t.suspend();
+}
+
+void Process::resume() {
+  for (auto &t : threads())
+    t.resume();
+}
+
+std::shared_ptr<Process> Process::launch(const std::string &path,
+                                         bool suspended) {
+  STARTUPINFOA si = {sizeof(si)};
+  PROCESS_INFORMATION pi = {};
+  if (!CreateProcessA(path.c_str(), NULL, NULL, NULL, FALSE,
+                      suspended ? CREATE_SUSPENDED : 0, NULL, NULL, &si, &pi))
+    throw std::runtime_error(std::format("Failed to launch process: {}",
+                                         GetLastError()));
+  CloseHandle(pi.hThread);
+  return attach(pi.hProcess);
+}
+
+std::shared_ptr<Process> Process::launch_suspended(const std::string &path) {
+  return launch(path, true);
 }
 } // namespace blook
