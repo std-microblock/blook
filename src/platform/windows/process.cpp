@@ -506,19 +506,25 @@ void Process::resume() {
     t.resume();
 }
 
-std::shared_ptr<Process> Process::launch(const std::string &path,
-                                         bool suspended) {
+std::shared_ptr<Process> Process::launch(std::string_view path,
+                                         LaunchOptions opts) {
   STARTUPINFOA si = {sizeof(si)};
   PROCESS_INFORMATION pi = {};
-  if (!CreateProcessA(path.c_str(), NULL, NULL, NULL, FALSE,
-                      suspended ? CREATE_SUSPENDED : 0, NULL, NULL, &si, &pi))
+  DWORD flags = opts.extra_flags;
+  if (opts.suspended)
+    flags |= CREATE_SUSPENDED;
+  if (opts.detached)
+    flags |= CREATE_NO_WINDOW | DETACHED_PROCESS | CREATE_BREAKAWAY_FROM_JOB;
+  if (!CreateProcessA(path.data(), NULL, NULL, NULL, FALSE, flags, NULL, NULL,
+                      &si, &pi))
     throw std::runtime_error(std::format("Failed to launch process: {}",
                                          GetLastError()));
   CloseHandle(pi.hThread);
   return attach(pi.hProcess);
 }
 
-std::shared_ptr<Process> Process::launch_suspended(const std::string &path) {
-  return launch(path, true);
+std::shared_ptr<Process> Process::launch_suspended(std::string_view path,
+                                                   DWORD extra_flags) {
+  return launch(path, {.suspended = true, .extra_flags = extra_flags});
 }
 } // namespace blook

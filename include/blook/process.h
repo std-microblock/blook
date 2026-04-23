@@ -12,6 +12,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace blook {
@@ -24,6 +25,12 @@ class ProcessAllocator;
 class Process : public std::enable_shared_from_this<Process> {
 public:
 #ifdef _WIN32
+
+  struct LaunchOptions {
+    bool suspended = false;
+    bool detached = false;
+    DWORD extra_flags = 0;
+  };
 
   explicit Process(HANDLE h);
 
@@ -119,9 +126,12 @@ public:
       void *inject(const std::string &dll_path,
                    InjectMethod method = InjectMethod::CreateRemoteThread);)
 
-  static std::shared_ptr<Process> launch(const std::string &path,
-                                         bool suspended = false);
-  static std::shared_ptr<Process> launch_suspended(const std::string &path);
+  WIN_ONLY(
+      static std::shared_ptr<Process>
+      launch(std::string_view path, LaunchOptions opts = {});
+      static std::shared_ptr<Process>
+      launch_suspended(std::string_view path,
+                       DWORD extra_flags = 0);)
 };
 
 } // namespace blook
